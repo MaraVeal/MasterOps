@@ -816,6 +816,13 @@
     .mise-tab-root .rc-preview-row:last-child { border-bottom: none; }
     .mise-tab-root .rc-preview-name { font-weight: 600; color: var(--text-primary); }
     .mise-tab-root .rc-preview-meta { color: var(--text-secondary); font-size: 11px; }
+    .mise-tab-root .rc-preview-site {
+      display: inline-block; margin-left: 6px;
+      font-size: 10px; font-weight: 700; letter-spacing: .3px;
+      padding: 1px 7px; border-radius: 4px;
+      background: rgba(243,99,74,0.12); color: var(--color-orange);
+      text-transform: uppercase; vertical-align: middle;
+    }
 
     /* ══════════════════ Theme toggle ══════════════════ */
     .rc-theme-btn {
@@ -1843,12 +1850,19 @@
   function rcOpenBulkEmail() {
     const activeSite = getActiveSite();
     if (!activeSite) { alert('Add a site before sending bulk emails.'); return; }
-    const siteContacts = state.contacts.filter(c => c.siteId === activeSite.id && c.email);
-    if (!siteContacts.length) { alert('No contacts with email addresses in this site.'); return; }
-    const defaultSelected = new Set(siteContacts.filter(c => c.status === 'active').map(c => c.id));
+    const anySiteHasEmails = state.sites.some(s =>
+      !s.hidden && state.contacts.some(c => c.siteId === s.id && c.email)
+    );
+    if (!anySiteHasEmails) { alert('No contacts with email addresses across your sites.'); return; }
+    const initialSiteIds = new Set([activeSite.id]);
+    const defaultSelected = new Set(
+      state.contacts
+        .filter(c => c.siteId === activeSite.id && c.email && c.status === 'active')
+        .map(c => c.id)
+    );
     state.modal = 'bulkEmail';
     state.modalState = {
-      siteId: activeSite.id,
+      siteIds: initialSiteIds,
       selected: defaultSelected,
       subject: '',
       body: '',
@@ -2429,14 +2443,56 @@
       </div>`;
   }
   function renderBulkEmailModal(mount) {
-    const activeSite = getActiveSite();
+    const siteIds  = state.modalState.siteIds || new Set();
     const selected = state.modalState.selected || new Set();
-    const siteContacts = state.contacts.filter(c => c.siteId === state.modalState.siteId && c.email);
+    // Sites with at least one email-having contact (the only ones worth picking)
+    const eligibleSites = state.sites.filter(s =>
+      !s.hidden && state.contacts.some(c => c.siteId === s.id && c.email)
+    );
+    // Contacts to show: those whose site is currently checked, with an email
+    const visibleContacts = state.contacts.filter(c => siteIds.has(c.siteId) && c.email);
+    // Show site labels on contact rows only when multiple sites are selected
+    const showSiteLabels = siteIds.size > 1;
     const grouped = {
-      active: siteContacts.filter(c => c.status === 'active'),
-      paused: siteContacts.filter(c => c.status === 'paused'),
-      terminated: siteContacts.filter(c => c.status === 'terminated'),
+      active:     visibleContacts.filter(c => c.status === 'active'),
+      paused:     visibleContacts.filter(c => c.status === 'paused'),
+      terminated: visibleContacts.filter(c => c.status === 'terminated'),
     };
+
+    // Sites picker — only shown if there's more than one eligible site
+    const sitesSection = eligibleSites.length > 1 ? `
+      <div style="margin-top:14px; padding:10px 12px; background: var(--bg-soft); border-radius: 8px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <div style="font-size:12px; text-transform:uppercase; letter-spacing:.3px; font-weight:700; color:var(--text-secondary);">
+            Sites <span style="color:var(--text-muted); font-weight:600;">(${siteIds.size}/${eligibleSites.length})</span>
+          </div>
+          <div class="rc-row" style="gap:8px;">
+            <button class="rc-btn rc-btn-ghost rc-btn-sm" data-action="bulk-sites-all">All sites</button>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:2px;">
+          ${eligibleSites.map(s => {
+            const checked = siteIds.has(s.id);
+            const emailContacts = state.contacts.filter(c => c.siteId === s.id && c.email);
+            const counts = {
+              active:     emailContacts.filter(c => c.status === 'active').length,
+              paused:     emailContacts.filter(c => c.status === 'paused').length,
+              terminated: emailContacts.filter(c => c.status === 'terminated').length,
+            };
+            const countsStr = [
+              counts.active ? `${counts.active} active` : '',
+              counts.paused ? `${counts.paused} paused` : '',
+              counts.terminated ? `${counts.terminated} term.` : '',
+            ].filter(Boolean).join(' · ');
+            return `<label class="rc-checkbox-row" style="display:flex; align-items:center; gap:8px; padding:4px 0;">
+              <input type="checkbox" class="rc-bulk-site-check" data-id="${s.id}" ${checked ? 'checked' : ''} />
+              <span style="font-size:13px; font-weight:600;">${escapeHtml(s.name)}</span>
+              <span style="font-size:11px; color:var(--text-muted);">— ${countsStr}</span>
+            </label>`;
+          }).join('')}
+        </div>
+      </div>` : '';
+
     const renderGroup = (status, list) => {
       if (!list.length) return '';
       const allChecked = list.every(c => selected.has(c.id));
@@ -2449,27 +2505,38 @@
             </label>
           </div>
           <div class="rc-preview" style="max-height:none;">
-            ${list.map(c => `
-              <div class="rc-preview-row">
+            ${list.map(c => {
+              const siteName = showSiteLabels
+                ? state.sites.find(s => s.id === c.siteId)?.name
+                : '';
+              return `<div class="rc-preview-row">
                 <label class="rc-checkbox-row" style="flex:1;">
                   <input type="checkbox" class="rc-bulk-recipient" data-id="${c.id}" ${selected.has(c.id) ? 'checked' : ''} />
-                  <span class="rc-preview-name">${escapeHtml(c.contactName)} <span class="rc-preview-meta">— ${escapeHtml(c.restaurantName)}</span></span>
+                  <span class="rc-preview-name">${escapeHtml(c.contactName)} <span class="rc-preview-meta">— ${escapeHtml(c.restaurantName)}</span>${siteName ? `<span class="rc-preview-site">${escapeHtml(siteName)}</span>` : ''}</span>
                 </label>
                 <div class="rc-preview-meta">${escapeHtml(c.email)}</div>
-              </div>`).join('')}
+              </div>`;
+            }).join('')}
           </div>
         </div>`;
     };
+
     const selectedCount = selected.size;
     const fieldHint = selectedCount === 1 ? '→ TO' : selectedCount > 1 ? '→ BCC' : '';
+    const titleSuffix = siteIds.size === 0
+      ? 'No sites selected'
+      : siteIds.size === 1
+        ? escapeHtml(state.sites.find(s => siteIds.has(s.id))?.name || '')
+        : `${siteIds.size} sites`;
+
     mount.innerHTML = `
       <div class="rc-modal open" id="rc-modal" role="dialog" aria-modal="true">
         <div class="rc-modal-card" style="width: 640px;">
-          <div class="rc-modal-title">Bulk Email — ${escapeHtml(activeSite?.name || '')}</div>
+          <div class="rc-modal-title">Bulk Email — ${titleSuffix}</div>
           <div class="rc-modal-sub">
-            Pick recipients across any status. A single recipient goes to <strong>TO</strong>;
+            Pick recipients across one or more sites and statuses. A single recipient goes to <strong>TO</strong>;
             multiple recipients go to <strong>BCC</strong> so contacts can't see each other.
-            <strong>Active</strong> contacts are selected by default.
+            <strong>Active</strong> contacts in the current site are selected by default.
           </div>
 
           <div class="rc-field">
@@ -2481,7 +2548,9 @@
             <textarea id="rc-email-body" class="rc-input" rows="5" placeholder="(Optional — write your message here)">${escapeHtml(state.modalState.body || '')}</textarea>
           </div>
 
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding-top:12px; border-top:1px solid var(--divider);">
+          ${sitesSection}
+
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px; padding-top:12px; border-top:1px solid var(--divider);">
             <div style="font-size:13px; color:var(--text-primary);">
               <strong style="color:var(--color-orange);">${selectedCount}</strong> recipient${selectedCount === 1 ? '' : 's'} selected
               ${fieldHint ? `<span style="margin-left:8px; font-size:11px; font-weight:700; letter-spacing:.4px; color:var(--text-secondary); text-transform:uppercase;">${fieldHint}</span>` : ''}
@@ -3114,6 +3183,54 @@
       });
     }
 
+    // Bulk email modal — site checkbox toggle
+    document.querySelectorAll('.rc-bulk-site-check').forEach(cb => {
+      cb.addEventListener('change', e => {
+        const siteId = cb.getAttribute('data-id');
+        const siteIds = state.modalState.siteIds || new Set();
+        const sel = state.modalState.selected || new Set();
+        if (cb.checked) {
+          siteIds.add(siteId);
+          // Auto-select active contacts in the newly-added site, mirroring open-modal defaults
+          state.contacts
+            .filter(c => c.siteId === siteId && c.email && c.status === 'active')
+            .forEach(c => sel.add(c.id));
+        } else {
+          siteIds.delete(siteId);
+          // Drop any selected contacts that belong to the deselected site
+          state.contacts
+            .filter(c => c.siteId === siteId)
+            .forEach(c => sel.delete(c.id));
+        }
+        state.modalState.siteIds = siteIds;
+        state.modalState.selected = sel;
+        state.modalState.subject = document.getElementById('rc-email-subject')?.value || state.modalState.subject || '';
+        state.modalState.body    = document.getElementById('rc-email-body')?.value    || state.modalState.body    || '';
+        render();
+      });
+    });
+
+    // Bulk email modal — "All sites" button (check every eligible site, re-default to its active vendors)
+    document.querySelectorAll('[data-action="bulk-sites-all"]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.preventDefault();
+        const eligibleSites = state.sites.filter(s =>
+          !s.hidden && state.contacts.some(c => c.siteId === s.id && c.email)
+        );
+        const siteIds = new Set(eligibleSites.map(s => s.id));
+        const sel = new Set(
+          state.contacts
+            .filter(c => siteIds.has(c.siteId) && c.email && c.status === 'active')
+            .map(c => c.id)
+        );
+        state.modalState.siteIds = siteIds;
+        state.modalState.selected = sel;
+        state.modalState.subject = document.getElementById('rc-email-subject')?.value || state.modalState.subject || '';
+        state.modalState.body    = document.getElementById('rc-email-body')?.value    || state.modalState.body    || '';
+        render();
+      });
+    });
+
     // Bulk email modal — recipient toggles
     document.querySelectorAll('.rc-bulk-recipient').forEach(cb => {
       cb.addEventListener('change', e => {
@@ -3121,34 +3238,37 @@
         const sel = state.modalState.selected || new Set();
         if (cb.checked) sel.add(id); else sel.delete(id);
         state.modalState.selected = sel;
-        // Persist current subject/body before re-render
         state.modalState.subject = document.getElementById('rc-email-subject')?.value || state.modalState.subject || '';
         state.modalState.body    = document.getElementById('rc-email-body')?.value    || state.modalState.body    || '';
         render();
       });
     });
-    // Bulk email modal — group toggle (whole status group on/off)
+    // Bulk email modal — group toggle (entire status, across all selected sites)
     document.querySelectorAll('.rc-bulk-group-check').forEach(cb => {
       cb.addEventListener('change', e => {
         const status = cb.getAttribute('data-status');
+        const siteIds = state.modalState.siteIds || new Set();
         const sel = state.modalState.selected || new Set();
-        const siteContacts = state.contacts.filter(c => c.siteId === state.modalState.siteId && c.email && c.status === status);
-        if (cb.checked) siteContacts.forEach(c => sel.add(c.id));
-        else siteContacts.forEach(c => sel.delete(c.id));
+        const contacts = state.contacts.filter(c => siteIds.has(c.siteId) && c.email && c.status === status);
+        if (cb.checked) contacts.forEach(c => sel.add(c.id));
+        else contacts.forEach(c => sel.delete(c.id));
         state.modalState.selected = sel;
         state.modalState.subject = document.getElementById('rc-email-subject')?.value || state.modalState.subject || '';
         state.modalState.body    = document.getElementById('rc-email-body')?.value    || state.modalState.body    || '';
         render();
       });
     });
-    // Bulk email modal — select all / none
+    // Bulk email modal — select all / none across selected sites
     document.querySelectorAll('[data-action="bulk-email-all"], [data-action="bulk-email-none"]').forEach(btn => {
       btn.addEventListener('click', e => {
         e.preventDefault();
         const all = btn.getAttribute('data-action') === 'bulk-email-all';
+        const siteIds = state.modalState.siteIds || new Set();
         const sel = new Set();
         if (all) {
-          state.contacts.filter(c => c.siteId === state.modalState.siteId && c.email).forEach(c => sel.add(c.id));
+          state.contacts
+            .filter(c => siteIds.has(c.siteId) && c.email)
+            .forEach(c => sel.add(c.id));
         }
         state.modalState.selected = sel;
         state.modalState.subject = document.getElementById('rc-email-subject')?.value || state.modalState.subject || '';
