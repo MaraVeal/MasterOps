@@ -1,0 +1,3210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mise Tab — Master Ops</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script>
+  // Apply saved theme before render to avoid flash of light.
+  (function(){
+    try {
+      if (localStorage.getItem('mise_theme') === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    } catch (e) {}
+    window.miseToggleTheme = function() {
+      var html = document.documentElement;
+      var isDark = html.getAttribute('data-theme') === 'dark';
+      if (isDark) {
+        html.removeAttribute('data-theme');
+        try { localStorage.setItem('mise_theme', 'light'); } catch (e) {}
+      } else {
+        html.setAttribute('data-theme', 'dark');
+        try { localStorage.setItem('mise_theme', 'dark'); } catch (e) {}
+      }
+    };
+  })();
+  </script>
+  <style>
+    /* ═══════════════════════════════════════════════════════════════════════
+       MISE TAB · Restaurant Contacts
+       Standalone build. Class prefix: rc-
+       All styles scoped under .mise-tab-root so they cannot collide with the
+       host page on merge into Mise.
+       ═══════════════════════════════════════════════════════════════════════ */
+
+    /* ── Design tokens (mirrors Mise main) ── */
+    :root {
+      --bg-page:        #F5F5F6;
+      --bg-card:        #fff;
+      --bg-soft:        #FAFAFA;
+      --text-default:   #222;
+      --text-primary:   #374053;
+      --text-secondary: #737A87;
+      --text-muted:     #AFB3BA;
+      --border:         #e4e6ea;
+      --border-input:   #d7dae0;
+      --divider:        #eef0f3;
+      --color-orange:   #F3634A;
+      --color-orange-dark: #d94f39;
+      --color-green:    #18CC9B;
+      --color-green-deep: #0E8F66;
+      --color-green-soft: #E4F8F1;
+      --color-green-border: #8FDCC0;
+      --color-yellow:   #FBDB56;
+      --color-charcoal: #374053;
+      --color-red:      #C74425;
+      --color-red-soft: #FEE8E2;
+      --color-red-border: #F3A896;
+    }
+    html[data-theme="dark"] {
+      --bg-page:        #2f3641;
+      --bg-card:        #3d4452;
+      --bg-soft:        #353c48;
+      --text-default:   #D4D8DE;
+      --text-primary:   #D4D8DE;
+      --text-secondary: #B5BEC9;
+      --text-muted:     #9AA6B5;
+      --border:         rgba(255,255,255,0.1);
+      --border-input:   rgba(255,255,255,0.14);
+      --divider:        rgba(255,255,255,0.06);
+      background-color: #2f3641 !important;
+    }
+    html[data-theme="dark"] body { background-color: #2f3641 !important; }
+
+    /* ── Scoping reset (only inside .mise-tab-root) ── */
+    .mise-tab-root, .mise-tab-root * { box-sizing: border-box; }
+    .mise-tab-root {
+      font-family: "Quicksand", "Segoe UI", Arial, sans-serif;
+      color: var(--text-default);
+      background: var(--bg-page);
+      padding: 24px 32px;
+      min-height: 100vh;
+      line-height: 1.4;
+      transition: background .2s, color .2s;
+    }
+    input, button, select, textarea { font-family: inherit; }
+
+    /* ── Wordmark (Mise brand type) ── */
+    .mise-tab-root .mise-word {
+      font-family: Georgia, "Times New Roman", serif;
+      font-style: italic; font-weight: 500; letter-spacing: .3px;
+    }
+
+    /* ══════════════════ Header ══════════════════ */
+    .mise-tab-root .rc-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 16px; padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      gap: 16px;
+    }
+    .mise-tab-root .rc-title {
+      font-size: 24px; font-weight: 700; color: var(--text-primary);
+    }
+    .mise-tab-root .rc-subtitle {
+      font-size: 13px; color: var(--text-secondary); margin-top: 2px;
+    }
+    .mise-tab-root .rc-header-actions { display: flex; gap: 8px; align-items: center; }
+
+    /* ══════════════════ Subnav (sites) ══════════════════ */
+    .mise-tab-root .rc-subnav {
+      display: flex; gap: 4px; margin-bottom: 16px;
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+      padding: 4px; width: fit-content; max-width: 100%;
+      flex-wrap: wrap;
+    }
+    .mise-tab-root .rc-subnav-btn {
+      padding: 8px 14px; border: none; background: transparent;
+      color: var(--text-secondary); font-size: 13px; font-weight: 600; cursor: pointer;
+      border-radius: 7px; font-family: inherit; transition: all .15s;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .mise-tab-root .rc-subnav-btn:hover { color: var(--text-primary); background: var(--bg-soft); }
+    .mise-tab-root .rc-subnav-btn.active {
+      background: var(--color-orange); color: #fff;
+    }
+    .mise-tab-root .rc-subnav-btn .rc-count {
+      font-size: 11px; font-weight: 700;
+      padding: 1px 7px; border-radius: 999px;
+      background: rgba(0,0,0,0.06); color: var(--text-secondary);
+      min-width: 18px; text-align: center;
+    }
+    .mise-tab-root .rc-subnav-btn.active .rc-count {
+      background: rgba(255,255,255,0.22); color: #fff;
+    }
+    html[data-theme="dark"] .mise-tab-root .rc-subnav-btn .rc-count {
+      background: rgba(255,255,255,0.08);
+    }
+    .mise-tab-root .rc-subnav-sep {
+      display: inline-block;
+      width: 1px; height: 22px; align-self: center;
+      background: var(--border); margin: 0 4px;
+    }
+    .mise-tab-root .rc-subnav-add {
+      color: var(--color-orange); font-weight: 700;
+    }
+    .mise-tab-root .rc-subnav-add:hover { background: var(--bg-soft); color: var(--color-orange-dark); }
+    .mise-tab-root .rc-subnav-hidden {
+      color: var(--text-muted); font-weight: 600;
+    }
+    .mise-tab-root .rc-subnav-hidden:hover { color: var(--text-primary); background: var(--bg-soft); }
+
+    /* Site dropdown (replaces horizontal pills when there are many sites) */
+    .mise-tab-root .rc-site-dropdown {
+      position: relative; display: inline-block;
+    }
+    .mise-tab-root .rc-site-dropdown-btn {
+      padding: 8px 14px; background: var(--color-orange); color: #fff;
+      border: none; border-radius: 7px; font-size: 13px; font-weight: 600;
+      font-family: inherit; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 10px;
+      transition: background .15s;
+    }
+    .mise-tab-root .rc-site-dropdown-btn:hover { background: var(--color-orange-dark); }
+    .mise-tab-root .rc-site-dropdown-btn .rc-chevron {
+      display: inline-flex; align-items: center; transition: transform .15s;
+    }
+    .mise-tab-root .rc-site-dropdown.open .rc-site-dropdown-btn .rc-chevron {
+      transform: rotate(180deg);
+    }
+    .mise-tab-root .rc-site-dropdown-btn .rc-count {
+      font-size: 11px; font-weight: 700;
+      padding: 1px 7px; border-radius: 999px;
+      background: rgba(255,255,255,0.22); color: #fff;
+      min-width: 18px; text-align: center;
+    }
+    .mise-tab-root .rc-site-dropdown-menu {
+      position: absolute; top: calc(100% + 6px); left: 0;
+      min-width: 260px; max-height: 360px; overflow-y: auto;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+      z-index: 100; padding: 4px;
+      display: none;
+    }
+    html[data-theme="dark"] .mise-tab-root .rc-site-dropdown-menu {
+      box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+    }
+    .mise-tab-root .rc-site-dropdown.open .rc-site-dropdown-menu { display: block; }
+    .mise-tab-root .rc-site-dropdown-empty {
+      padding: 12px 14px; color: var(--text-muted);
+      font-size: 12px; text-align: center;
+    }
+    .mise-tab-root .rc-site-dropdown-item {
+      display: flex; align-items: center; justify-content: space-between;
+      width: 100%; padding: 8px 12px; border-radius: 6px; cursor: pointer;
+      background: transparent; border: none; color: var(--text-primary);
+      font-size: 13px; font-weight: 500; font-family: inherit;
+      text-align: left; transition: background .1s;
+    }
+    .mise-tab-root .rc-site-dropdown-item:hover { background: var(--bg-soft); }
+    .mise-tab-root .rc-site-dropdown-item.active {
+      background: rgba(243,99,74,0.10); color: var(--color-orange); font-weight: 700;
+    }
+    .mise-tab-root .rc-site-dropdown-item .rc-count {
+      font-size: 11px; font-weight: 700;
+      padding: 1px 7px; border-radius: 999px;
+      background: rgba(0,0,0,0.06); color: var(--text-secondary);
+      min-width: 18px; text-align: center;
+    }
+    .mise-tab-root .rc-site-dropdown-item.active .rc-count {
+      background: rgba(243,99,74,0.18); color: var(--color-orange);
+    }
+    html[data-theme="dark"] .mise-tab-root .rc-site-dropdown-item .rc-count {
+      background: rgba(255,255,255,0.08);
+    }
+
+    /* Collapsible block-head (used for Site Info) */
+    .mise-tab-root .rc-collapsible-trigger {
+      cursor: pointer; user-select: none;
+      display: inline-flex; align-items: center; gap: 10px;
+      padding: 4px 6px; margin: -4px -6px; border-radius: 6px;
+      transition: background .12s;
+    }
+    .mise-tab-root .rc-collapsible-trigger:hover { background: rgba(255,255,255,0.08); }
+    .mise-tab-root .rc-collapsible-trigger .rc-chevron {
+      display: inline-flex; align-items: center;
+      transition: transform .15s; opacity: 0.7;
+    }
+    .mise-tab-root .rc-collapsible-trigger.expanded .rc-chevron { transform: rotate(180deg); }
+
+    /* ══════════════════ Search + selection bar ══════════════════ */
+    .mise-tab-root .rc-toolbar {
+      display: flex; gap: 12px; align-items: center; margin-bottom: 12px;
+    }
+    .mise-tab-root .rc-search {
+      flex: 1; position: relative;
+    }
+    .mise-tab-root .rc-search input {
+      width: 100%; padding: 9px 12px 9px 36px;
+      border: 1px solid var(--border-input); border-radius: 8px;
+      font-size: 13px; font-family: inherit; color: var(--text-primary);
+      background: var(--bg-card);
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .mise-tab-root .rc-search input:focus {
+      outline: none; border-color: var(--color-orange);
+      box-shadow: 0 0 0 3px rgba(243,99,74,0.12);
+    }
+    .mise-tab-root .rc-search-icon {
+      position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+      color: var(--text-muted); display: flex; align-items: center;
+    }
+
+    /* Global search bar (at top of page, above Site Info) */
+    .mise-tab-root .rc-global-search {
+      position: relative; margin-bottom: 14px;
+    }
+    .mise-tab-root .rc-global-search input {
+      width: 100%; padding: 11px 40px 11px 40px;
+      border: 1px solid var(--border-input); border-radius: 10px;
+      font-size: 14px; font-family: inherit; color: var(--text-primary);
+      background: var(--bg-card);
+      transition: border-color .15s, box-shadow .15s;
+      box-shadow: 0 1px 3px rgba(24, 28, 35, 0.04);
+    }
+    .mise-tab-root .rc-global-search input:focus {
+      outline: none; border-color: var(--color-orange);
+      box-shadow: 0 0 0 3px rgba(243,99,74,0.12);
+    }
+    .mise-tab-root .rc-global-search .rc-search-icon { left: 14px; }
+    .mise-tab-root .rc-search-clear {
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      width: 24px; height: 24px; border-radius: 50%; border: none;
+      background: var(--bg-soft); color: var(--text-secondary);
+      font-size: 16px; line-height: 1; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-family: inherit; padding: 0;
+    }
+    .mise-tab-root .rc-search-clear:hover {
+      background: var(--color-red); color: #fff;
+    }
+
+    /* Search results dropdown (typeahead under the global search bar) */
+    .mise-tab-root .rc-search-results {
+      position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 10px; box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+      z-index: 50; max-height: 480px; overflow-y: auto;
+      padding: 4px;
+    }
+    html[data-theme="dark"] .mise-tab-root .rc-search-results {
+      box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+    }
+    .mise-tab-root .rc-search-section {
+      padding: 6px 0; border-bottom: 1px solid var(--divider);
+    }
+    .mise-tab-root .rc-search-section:last-child { border-bottom: none; }
+    .mise-tab-root .rc-search-section-title {
+      padding: 6px 12px 4px; font-size: 10px; font-weight: 700;
+      letter-spacing: 0.5px; text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .mise-tab-root .rc-search-result {
+      display: block; width: 100%; background: transparent; border: none;
+      text-align: left; padding: 8px 12px; border-radius: 6px;
+      cursor: pointer; font-family: inherit; color: var(--text-primary);
+      transition: background .1s;
+    }
+    .mise-tab-root .rc-search-result:hover { background: var(--bg-soft); }
+    .mise-tab-root .rc-search-result-main {
+      font-size: 13px; font-weight: 600;
+    }
+    .mise-tab-root .rc-search-result-meta {
+      font-size: 11px; color: var(--text-secondary); margin-top: 2px;
+    }
+    .mise-tab-root .rc-search-empty {
+      padding: 16px 12px; font-size: 13px;
+      color: var(--text-muted); text-align: center;
+    }
+
+    /* ══════════════════ Block card ══════════════════ */
+    .mise-tab-root .rc-block {
+      background: var(--bg-card); border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(24, 28, 35, 0.04);
+      border: 1px solid var(--border);
+      margin-bottom: 14px;
+      overflow: hidden;
+    }
+    .mise-tab-root .rc-block-head {
+      background: var(--color-charcoal); color: #fff;
+      padding: 12px 18px;
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 10px;
+    }
+    .mise-tab-root .rc-block-head h2 {
+      font-size: 14px; font-weight: 600; margin: 0;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .mise-tab-root .rc-block-body { padding: 0; }
+    .mise-tab-root .rc-block-body.rc-padded { padding: 18px; }
+
+    /* Soft tag (count badge) on the block header */
+    .mise-tab-root .rc-tag {
+      display: inline-block; font-size: 10px; font-weight: 700;
+      padding: 3px 10px; border-radius: 999px;
+      background: rgba(255,255,255,0.12); color: #fff;
+      letter-spacing: .3px;
+    }
+
+    /* CTA button on a dark block header */
+    .mise-tab-root .rc-block-head .rc-btn-head {
+      background: var(--color-orange); color: #fff;
+      border: 1px solid var(--color-orange);
+      padding: 6px 12px; border-radius: 7px; font-size: 12px; font-weight: 700;
+      font-family: inherit; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 5px;
+      transition: background .15s, border-color .15s;
+    }
+    .mise-tab-root .rc-block-head .rc-btn-head:hover {
+      background: var(--color-orange-dark); border-color: var(--color-orange-dark);
+    }
+
+    /* ══════════════════ Buttons ══════════════════ */
+    .mise-tab-root .rc-btn {
+      padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600;
+      cursor: pointer; font-family: inherit; transition: all .15s;
+      border: 1px solid transparent; white-space: nowrap;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .mise-tab-root .rc-btn-primary {
+      background: var(--color-orange); color: #fff; border-color: var(--color-orange);
+    }
+    .mise-tab-root .rc-btn-primary:hover { background: var(--color-orange-dark); border-color: var(--color-orange-dark); }
+    .mise-tab-root .rc-btn-ghost {
+      background: var(--bg-card); color: var(--text-primary); border-color: var(--border-input);
+    }
+    .mise-tab-root .rc-btn-ghost:hover { border-color: var(--color-orange); color: var(--color-orange); }
+    .mise-tab-root .rc-btn-sm { padding: 6px 10px; font-size: 12px; }
+
+    /* ══════════════════ Form inputs ══════════════════ */
+    .mise-tab-root .rc-input {
+      width: 100%; padding: 9px 12px; border: 1px solid var(--border-input);
+      border-radius: 8px; font-size: 13px; font-family: inherit; color: var(--text-primary);
+      background: var(--bg-card); transition: border-color .15s, box-shadow .15s;
+    }
+    .mise-tab-root .rc-input:focus {
+      outline: none; border-color: var(--color-orange);
+      box-shadow: 0 0 0 3px rgba(243,99,74,0.12);
+    }
+    .mise-tab-root .rc-input::placeholder { color: var(--text-muted); }
+    .mise-tab-root .rc-label {
+      display: block; font-size: 11px; font-weight: 700;
+      letter-spacing: .3px; text-transform: uppercase; color: var(--text-secondary);
+      margin-bottom: 5px;
+    }
+    .mise-tab-root .rc-label .rc-required { color: var(--color-orange); margin-left: 2px; }
+    .mise-tab-root .rc-hint {
+      font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.4;
+    }
+    .mise-tab-root textarea.rc-input { resize: vertical; min-height: 60px; }
+
+    /* ── Shift schedule editor (in site form) ── */
+    .mise-tab-root .rc-shifts {
+      display: flex; flex-direction: column; gap: 10px;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--bg-soft); padding: 10px;
+    }
+    .mise-tab-root .rc-shift-row {
+      display: grid;
+      grid-template-columns: 110px 1fr 200px;
+      gap: 10px; align-items: center;
+      min-width: 0;
+    }
+    .mise-tab-root .rc-shift-row > * { min-width: 0; }
+    @media (max-width: 600px) {
+      .mise-tab-root .rc-shift-row {
+        grid-template-columns: 1fr;
+        gap: 6px;
+      }
+    }
+    .mise-tab-root .rc-shift-name {
+      font-size: 13px; font-weight: 700; color: var(--text-primary);
+    }
+    .mise-tab-root .rc-shift-times {
+      display: flex; align-items: center; gap: 6px;
+    }
+    .mise-tab-root .rc-time-input {
+      flex: 1; min-width: 0; padding: 6px 8px; font-size: 12px;
+    }
+    .mise-tab-root .rc-shift-dash {
+      color: var(--text-muted); font-weight: 600;
+    }
+    .mise-tab-root .rc-shift-days {
+      display: flex; gap: 3px;
+    }
+    .mise-tab-root .rc-day-select {
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+      padding: 6px 8px;
+      font-size: 12px;
+    }
+    @media (max-width: 600px) {
+      .mise-tab-root .rc-day-select { width: 100%; }
+    }
+
+    /* Custom day buttons — shown inline below the dropdown when "Custom days…" is selected */
+    .mise-tab-root .rc-shift-custom-days {
+      grid-column: 1 / -1;
+      display: flex; gap: 4px; flex-wrap: wrap;
+      padding: 4px 0 2px;
+    }
+    .mise-tab-root .rc-day-btn {
+      width: 30px; height: 28px; padding: 0;
+      border: 1px solid var(--border-input);
+      background: var(--bg-card);
+      color: var(--text-secondary);
+      font-size: 11px; font-weight: 700;
+      border-radius: 6px; cursor: pointer;
+      font-family: inherit;
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: all .12s;
+    }
+    .mise-tab-root .rc-day-btn:hover {
+      border-color: var(--color-orange); color: var(--color-orange);
+    }
+    .mise-tab-root .rc-day-btn.active {
+      background: var(--color-orange); border-color: var(--color-orange); color: #fff;
+    }
+    .mise-tab-root .rc-day-btn.active:hover {
+      background: var(--color-orange-dark); border-color: var(--color-orange-dark);
+    }
+
+    /* ── Site Info block (top of site page) ── */
+    .mise-tab-root .rc-site-info { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 760px) {
+      .mise-tab-root .rc-site-info { grid-template-columns: 1fr; }
+    }
+    .mise-tab-root .rc-info-section { display: flex; flex-direction: column; gap: 16px; }
+    .mise-tab-root .rc-info-row { display: flex; flex-direction: column; gap: 5px; }
+    .mise-tab-root .rc-info-label {
+      font-size: 12px; font-weight: 700; letter-spacing: .6px;
+      text-transform: uppercase; color: var(--text-primary);
+    }
+    .mise-tab-root .rc-info-value {
+      font-size: 14px; color: var(--text-primary); line-height: 1.5;
+    }
+    .mise-tab-root .rc-info-value-multiline { white-space: pre-line; }
+    .mise-tab-root .rc-info-stack {
+      display: flex; flex-direction: column; gap: 1px;
+    }
+    .mise-tab-root .rc-info-link {
+      color: var(--color-orange); text-decoration: none; font-weight: 600;
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    .mise-tab-root .rc-info-link:hover { text-decoration: underline; color: var(--color-orange-dark); }
+    .mise-tab-root .rc-schedule {
+      display: flex; flex-direction: column; gap: 6px;
+      margin-top: 4px;
+    }
+    .mise-tab-root .rc-schedule-row {
+      display: grid; grid-template-columns: 110px 1fr 1fr;
+      gap: 12px; align-items: baseline;
+      font-size: 13px;
+      padding: 6px 10px; border-radius: 6px;
+      background: var(--bg-soft);
+    }
+    .mise-tab-root .rc-schedule-name {
+      font-weight: 700; color: var(--text-primary);
+    }
+    .mise-tab-root .rc-schedule-time { color: var(--text-primary); }
+    .mise-tab-root .rc-schedule-days { color: var(--text-secondary); font-size: 12px; }
+    .mise-tab-root .rc-schedule-empty {
+      font-size: 12px; color: var(--text-muted); font-style: italic;
+    }
+    .mise-tab-root .rc-phone-list { display: flex; flex-direction: column; gap: 6px; }
+    .mise-tab-root .rc-phone-row { display: flex; gap: 6px; align-items: stretch; }
+    .mise-tab-root .rc-phone-input { flex: 1; }
+    .mise-tab-root .rc-phone-remove {
+      width: 34px; padding: 0;
+      background: var(--bg-soft); border: 1px solid var(--border-input);
+      border-radius: 8px; cursor: pointer; color: var(--text-secondary);
+      font-size: 16px; font-weight: 600; line-height: 1;
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: all .12s;
+    }
+    .mise-tab-root .rc-phone-remove:hover {
+      background: #FFF4F0; color: var(--color-red); border-color: var(--color-red-border);
+    }
+    html[data-theme="dark"] .mise-tab-root .rc-phone-remove:hover {
+      background: rgba(199,68,37,0.15);
+    }
+    .mise-tab-root .rc-phone-add {
+      background: transparent; border: none; padding: 6px 0 0; cursor: pointer;
+      color: var(--color-orange); font-size: 12px; font-weight: 700;
+      font-family: inherit; display: inline-flex; align-items: center; gap: 3px;
+    }
+    .mise-tab-root .rc-phone-add:hover { color: var(--color-orange-dark); text-decoration: underline; }
+
+    /* ══════════════════ Form layout ══════════════════ */
+    .mise-tab-root .rc-form { padding: 18px; }
+    .mise-tab-root .rc-field { margin-bottom: 12px; }
+    .mise-tab-root .rc-field:last-child { margin-bottom: 0; }
+    .mise-tab-root .rc-form-actions {
+      display: flex; gap: 8px; justify-content: flex-end;
+      padding-top: 12px; border-top: 1px solid var(--divider); margin-top: 4px;
+    }
+    .mise-tab-root .rc-form-error {
+      padding: 10px 12px; background: #FFF4F0; color: var(--color-red);
+      border: 1px solid var(--color-red-border); border-radius: 8px;
+      font-size: 12px; font-weight: 600; margin-bottom: 12px;
+    }
+    html[data-theme="dark"] .mise-tab-root .rc-form-error {
+      background: rgba(199,68,37,0.15); border-color: rgba(243,168,150,0.3);
+    }
+    .mise-tab-root .rc-checkbox-row {
+      display: flex; align-items: center; gap: 8px; font-size: 13px;
+      color: var(--text-primary); cursor: pointer;
+    }
+    .mise-tab-root .rc-checkbox-row input[type="checkbox"] {
+      width: 16px; height: 16px; accent-color: var(--color-orange); cursor: pointer;
+    }
+
+    /* Status segmented toggle in form */
+    .mise-tab-root .rc-seg {
+      display: flex; gap: 4px; background: var(--bg-soft); padding: 3px;
+      border-radius: 8px; border: 1px solid var(--border);
+    }
+    .mise-tab-root .rc-seg-btn {
+      flex: 1; padding: 6px 8px; border: none; background: transparent;
+      font-size: 12px; font-weight: 600; color: var(--text-secondary);
+      cursor: pointer; border-radius: 6px; font-family: inherit;
+      transition: all .12s;
+    }
+    .mise-tab-root .rc-seg-btn:hover { color: var(--text-primary); }
+    .mise-tab-root .rc-seg-btn.active {
+      background: var(--bg-card); color: var(--text-primary);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+    }
+    .mise-tab-root .rc-seg-btn[data-val="active"].active   { color: var(--color-green-deep); }
+    .mise-tab-root .rc-seg-btn[data-val="paused"].active   { color: #A16207; }
+    .mise-tab-root .rc-seg-btn[data-val="terminated"].active { color: var(--color-red); }
+    .mise-tab-root .rc-seg-btn[data-val="high"].active     { color: var(--color-green-deep); }
+    .mise-tab-root .rc-seg-btn[data-val="average"].active  { color: #A16207; }
+    .mise-tab-root .rc-seg-btn[data-val="low"].active      { color: var(--color-red); }
+
+    /* ══════════════════ Status pills (table rows) ══════════════════ */
+    .mise-tab-root .rc-status-pill {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 10px; font-weight: 700; letter-spacing: .3px;
+      padding: 3px 9px; border-radius: 999px; border: 1px solid;
+      white-space: nowrap;
+    }
+    .mise-tab-root .rc-status-pill.active {
+      background: var(--color-green-soft); color: var(--color-green-deep); border-color: var(--color-green-border);
+    }
+    .mise-tab-root .rc-status-pill.paused {
+      background: #FFF8DC; color: #856404; border-color: #FBDB56;
+    }
+    .mise-tab-root .rc-status-pill.terminated {
+      background: var(--color-red-soft); color: var(--color-red); border-color: var(--color-red-border);
+    }
+    .mise-tab-root .rc-status-pill .rc-dot {
+      width: 6px; height: 6px; border-radius: 50%; background: currentColor;
+    }
+    html[data-theme="dark"] .mise-tab-root .rc-status-pill.active {
+      background: rgba(24,204,155,0.15); border-color: rgba(143,220,192,0.4);
+    }
+    html[data-theme="dark"] .mise-tab-root .rc-status-pill.paused {
+      background: rgba(251,219,86,0.15); color: #FBDB56; border-color: rgba(251,219,86,0.4);
+    }
+    html[data-theme="dark"] .mise-tab-root .rc-status-pill.terminated {
+      background: rgba(199,68,37,0.15); border-color: rgba(243,168,150,0.4);
+    }
+
+    /* Performance text in its own column */
+    .mise-tab-root .rc-perf {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 12px; font-weight: 700;
+      line-height: 1.2;
+    }
+    .mise-tab-root .rc-perf svg { flex-shrink: 0; }
+    .mise-tab-root .rc-perf.high    { color: var(--color-green-deep); }
+    .mise-tab-root .rc-perf.average { color: #A16207; }
+    .mise-tab-root .rc-perf.low     { color: var(--color-red); }
+    .mise-tab-root .rc-perf.rc-perf-empty { color: var(--text-muted); font-weight: 400; }
+    html[data-theme="dark"] .mise-tab-root .rc-perf.high    { color: var(--color-green); }
+    html[data-theme="dark"] .mise-tab-root .rc-perf.average { color: var(--color-yellow); }
+    html[data-theme="dark"] .mise-tab-root .rc-perf.low     { color: #F3A896; }
+
+    /* NEW badge */
+    .mise-tab-root .rc-new-badge {
+      display: inline-block; font-size: 9px; font-weight: 800; letter-spacing: 0.5px;
+      padding: 2px 6px; border-radius: 4px; margin-left: 8px;
+      background: var(--color-orange); color: #fff; vertical-align: 2px;
+    }
+
+    /* ══════════════════ Data table ══════════════════ */
+    .mise-tab-root .rc-table-wrap { overflow-x: auto; }
+    .mise-tab-root .rc-table {
+      width: 100%; border-collapse: collapse; font-size: 13px;
+    }
+    .mise-tab-root .rc-table thead th {
+      background: var(--bg-soft); color: var(--text-secondary);
+      font-size: 10px; font-weight: 700; letter-spacing: .4px;
+      text-transform: uppercase; text-align: left;
+      padding: 10px 14px; border-bottom: 1px solid var(--border);
+    }
+    .mise-tab-root .rc-table tbody td {
+      padding: 12px 14px; border-bottom: 1px solid var(--divider);
+      vertical-align: top;
+    }
+    .mise-tab-root .rc-table tbody tr:last-child td { border-bottom: none; }
+    .mise-tab-root .rc-table tbody tr:hover { background: var(--bg-soft); }
+    .mise-tab-root .rc-table tbody tr.is-selected { background: rgba(243,99,74,0.06); }
+    .mise-tab-root .rc-check-cell { width: 36px; padding-right: 0 !important; }
+    .mise-tab-root .rc-check-cell input[type="checkbox"] {
+      width: 15px; height: 15px; accent-color: var(--color-orange); cursor: pointer;
+    }
+
+    /* Drag handle column for reordering */
+    .mise-tab-root .rc-drag-cell {
+      width: 24px; padding-left: 6px !important; padding-right: 0 !important;
+      text-align: center; color: var(--text-muted);
+      cursor: grab;
+    }
+    .mise-tab-root .rc-drag-cell:active { cursor: grabbing; }
+    .mise-tab-root .rc-drag-handle {
+      display: inline-flex; align-items: center; justify-content: center;
+      opacity: 0; transition: opacity .15s;
+    }
+    .mise-tab-root .rc-table tbody tr:hover .rc-drag-handle { opacity: 0.55; }
+    .mise-tab-root .rc-table tbody tr .rc-drag-handle:hover { opacity: 1; color: var(--text-primary); }
+    .mise-tab-root .rc-contact-row.rc-dragging { opacity: 0.4; }
+    .mise-tab-root .rc-contact-row.rc-drop-top td { box-shadow: inset 0 3px 0 0 var(--color-orange); }
+    .mise-tab-root .rc-contact-row.rc-drop-bottom td { box-shadow: inset 0 -3px 0 0 var(--color-orange); }
+    .mise-tab-root .rc-restaurant-name {
+      font-weight: 600; color: var(--text-primary);
+    }
+    .mise-tab-root .rc-restaurant-link {
+      font-weight: 600; color: var(--text-primary); text-decoration: none;
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .mise-tab-root .rc-restaurant-link:hover {
+      color: var(--color-orange); text-decoration: underline;
+    }
+    .mise-tab-root .rc-link-icon { opacity: 0.45; display: inline-flex; transition: opacity .15s; }
+    .mise-tab-root .rc-restaurant-link:hover .rc-link-icon { opacity: 1; }
+    .mise-tab-root .rc-contact-line {
+      font-size: 12px; color: var(--text-secondary); margin-top: 3px;
+    }
+    .mise-tab-root .rc-cuisine-tag {
+      display: inline-block; font-size: 11px; font-weight: 600;
+      padding: 2px 8px; border-radius: 999px;
+      background: var(--bg-soft); color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+    .mise-tab-root .rc-status-date {
+      font-size: 11px; color: var(--text-secondary); margin-top: 5px;
+    }
+    .mise-tab-root .rc-status-reason {
+      font-size: 11px; color: var(--text-secondary); margin-top: 3px;
+      font-style: italic; max-width: 240px; line-height: 1.35;
+    }
+
+    /* Row action buttons */
+    .mise-tab-root .rc-row-actions {
+      display: inline-flex; gap: 4px; opacity: 0; transition: opacity .15s;
+    }
+    .mise-tab-root .rc-table tbody tr:hover .rc-row-actions { opacity: 1; }
+    .mise-tab-root .rc-table tbody tr .rc-row-actions.is-editing { opacity: 1; }
+    .mise-tab-root .rc-row-btn {
+      width: 28px; height: 28px; padding: 0; border-radius: 6px;
+      background: transparent; border: 1px solid transparent;
+      color: var(--text-secondary); cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: all .12s;
+    }
+    .mise-tab-root .rc-row-btn:hover {
+      background: var(--bg-card); border-color: var(--border);
+      color: var(--text-primary);
+    }
+    .mise-tab-root .rc-row-btn.is-editing {
+      background: var(--color-orange); color: #fff; border-color: var(--color-orange);
+    }
+    .mise-tab-root .rc-row-btn.danger:hover {
+      background: #FFF4F0; color: var(--color-red); border-color: var(--color-red-border);
+    }
+
+    /* Empty state */
+    .mise-tab-root .rc-empty {
+      padding: 40px 18px; text-align: center; color: var(--text-muted);
+      font-size: 13px;
+    }
+    .mise-tab-root .rc-empty-strong { color: var(--text-secondary); font-weight: 600; }
+
+    /* ══════════════════ Selection bar ══════════════════ */
+    .mise-tab-root .rc-selection-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 18px; background: rgba(243,99,74,0.08);
+      border-bottom: 1px solid var(--border);
+      font-size: 13px; color: var(--text-primary);
+    }
+    html[data-theme="dark"] .mise-tab-root .rc-selection-bar {
+      background: rgba(243,99,74,0.18);
+    }
+    .mise-tab-root .rc-selection-bar strong { color: var(--color-orange); }
+    .mise-tab-root .rc-selection-actions { display: flex; gap: 8px; }
+
+    /* ══════════════════ Modal ══════════════════ */
+    .mise-tab-root .rc-modal {
+      display: none; position: fixed; inset: 0; z-index: 9999;
+      background: rgba(24,28,35,0.5);
+      align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .mise-tab-root .rc-modal.open { display: flex; }
+    .mise-tab-root .rc-modal-card {
+      background: var(--bg-card); border-radius: 12px;
+      padding: 24px; width: 560px; max-width: 100%;
+      max-height: 90vh; overflow-y: auto;
+      box-shadow: 0 24px 48px rgba(24,28,35,0.2);
+    }
+    .mise-tab-root .rc-modal-title {
+      font-size: 17px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px;
+    }
+    .mise-tab-root .rc-modal-sub {
+      font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.5;
+    }
+    .mise-tab-root .rc-modal-sub code {
+      background: var(--bg-soft); padding: 1px 5px; border-radius: 3px;
+      font-size: 11px; color: var(--text-primary);
+    }
+    .mise-tab-root .rc-modal-actions {
+      display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px;
+      flex-wrap: wrap;
+    }
+    .mise-tab-root .rc-modal-actions-left {
+      margin-right: auto; display: flex; gap: 8px;
+    }
+
+    /* Bulk add file dropzone */
+    .mise-tab-root .rc-bulk-drop {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 4px; padding: 28px 20px; margin-top: 4px;
+      border: 2px dashed var(--border-input); border-radius: 10px;
+      background: var(--bg-soft); cursor: pointer;
+      transition: all .15s;
+      text-align: center;
+    }
+    .mise-tab-root .rc-bulk-drop:hover,
+    .mise-tab-root .rc-bulk-drop.rc-drop-hover {
+      border-color: var(--color-orange);
+      background: rgba(243, 99, 74, 0.04);
+    }
+    html[data-theme="dark"] .mise-tab-root .rc-bulk-drop:hover,
+    html[data-theme="dark"] .mise-tab-root .rc-bulk-drop.rc-drop-hover {
+      background: rgba(243, 99, 74, 0.10);
+    }
+    .mise-tab-root .rc-bulk-drop-icon { font-size: 32px; line-height: 1; margin-bottom: 4px; }
+    .mise-tab-root .rc-bulk-drop-primary { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+    .mise-tab-root .rc-bulk-drop-secondary { font-size: 12px; color: var(--text-secondary); }
+
+    /* Bulk add preview */
+    .mise-tab-root .rc-preview {
+      max-height: 200px; overflow-y: auto; border: 1px solid var(--border);
+      border-radius: 8px; margin-top: 12px; font-size: 12px;
+    }
+    .mise-tab-root .rc-preview-row {
+      padding: 6px 10px; border-bottom: 1px solid var(--divider);
+      display: flex; justify-content: space-between; gap: 10px;
+    }
+    .mise-tab-root .rc-preview-row:last-child { border-bottom: none; }
+    .mise-tab-root .rc-preview-name { font-weight: 600; color: var(--text-primary); }
+    .mise-tab-root .rc-preview-meta { color: var(--text-secondary); font-size: 11px; }
+
+    /* ══════════════════ Theme toggle ══════════════════ */
+    .rc-theme-btn {
+      background: transparent; border: none; padding: 6px 8px; cursor: pointer;
+      color: var(--text-secondary); border-radius: 8px;
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: color .15s, background .15s; font-size: 18px; line-height: 1;
+    }
+    .rc-theme-btn:hover { color: var(--text-primary); background: var(--bg-soft); }
+    .rc-theme-btn .rc-icon-moon { display: inline; }
+    .rc-theme-btn .rc-icon-sun  { display: none; }
+    html[data-theme="dark"] .rc-theme-btn .rc-icon-moon { display: none; }
+    html[data-theme="dark"] .rc-theme-btn .rc-icon-sun  { display: inline; }
+
+    /* ══════════════════ Help/feedback floating button ══════════════════ */
+    .mise-tab-root .rc-help-btn {
+      position: fixed; bottom: 20px; right: 20px;
+      background: transparent; border: none; padding: 4px; cursor: pointer;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.15));
+      opacity: 0.75; transition: opacity .15s;
+      z-index: 9000;
+    }
+    .mise-tab-root .rc-help-btn:hover { opacity: 1; }
+    .mise-tab-root .rc-help-mark { font-size: 28px; line-height: 1; }
+
+    /* ══════════════════ Layout helpers ══════════════════ */
+    .mise-tab-root .rc-row { display: flex; gap: 12px; align-items: center; }
+    .mise-tab-root .rc-stack { display: flex; flex-direction: column; gap: 12px; }
+    .mise-tab-root .rc-hidden { display: none !important; }
+
+    /* ── Dark mode component overrides ── */
+    html[data-theme="dark"] .mise-tab-root .rc-block { box-shadow: 0 1px 6px rgba(0,0,0,0.25); }
+    html[data-theme="dark"] .mise-tab-root .rc-block-head { background: #2a3140; }
+    html[data-theme="dark"] .mise-tab-root .rc-input { color: var(--text-primary); }
+    html[data-theme="dark"] .mise-tab-root .rc-input:focus { box-shadow: 0 0 0 3px rgba(243,99,74,0.18); }
+    html[data-theme="dark"] .mise-tab-root .rc-modal { background: rgba(10,12,18,0.65); }
+    html[data-theme="dark"] .mise-tab-root .rc-modal-card { box-shadow: 0 24px 48px rgba(0,0,0,0.45); }
+    html[data-theme="dark"] .mise-tab-root .rc-subnav { background: var(--bg-soft); border-color: var(--border); }
+    html[data-theme="dark"] .mise-tab-root .rc-btn-ghost { background: var(--bg-soft); border-color: var(--border-input); }
+    html[data-theme="dark"] .mise-tab-root .rc-table thead th { background: var(--bg-soft); }
+    html[data-theme="dark"] .mise-tab-root .rc-table tbody tr:hover { background: rgba(255,255,255,0.04); }
+    html[data-theme="dark"] .mise-tab-root .rc-table tbody tr.is-selected { background: rgba(243,99,74,0.15); }
+    html[data-theme="dark"] .mise-tab-root .rc-cuisine-tag { background: var(--bg-soft); }
+  </style>
+</head>
+<body>
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+       ROOT WRAPPER — everything lives inside .mise-tab-root
+       ════════════════════════════════════════════════════════════════════════ -->
+  <div class="mise-tab-root">
+
+    <header class="rc-header">
+      <div>
+        <div class="rc-title">Master Ops</div>
+        <div class="rc-subtitle">Vendor partnerships and contact details for the team.</div>
+      </div>
+      <div class="rc-header-actions">
+        <button class="rc-btn rc-btn-ghost mise-team-plus" onclick="rcOpenBulkEmail()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          Bulk Email
+        </button>
+        <button class="rc-btn rc-btn-ghost mise-team-plus" onclick="rcOpenBulkAdd()">Bulk Add</button>
+        <button class="rc-theme-btn" onclick="miseToggleTheme()" title="Toggle dark mode" aria-label="Toggle dark mode">
+          <span class="rc-icon-moon">🌙</span>
+          <span class="rc-icon-sun">☀️</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Sites subnav -->
+    <nav class="rc-subnav" id="rc-sites-nav" aria-label="Sites"></nav>
+
+    <!-- Main content (full width — form opens as a modal) -->
+    <div id="rc-content"></div>
+
+    <!-- Modal mount (a single .rc-modal is rendered when needed) -->
+    <div id="rc-modal-mount"></div>
+
+    <!-- Help/feedback floating button -->
+    <button class="rc-help-btn" title="Help & feedback" aria-label="Help and feedback" onclick="rcShowHelp()">
+      <span class="rc-help-mark">💬</span>
+    </button>
+
+  </div>
+
+  <script>
+  /* ═══════════════════════════════════════════════════════════════════════
+     MISE TAB · Restaurant Contacts — JS
+     Standalone build. All logic scoped via closures; storage uses
+     window.storage if available (Anthropic artifact context), else
+     localStorage fallback.
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  (function() {
+
+  /* ══════════════════ Storage layer ══════════════════ */
+  const useArtifactStorage = !!(window.storage && typeof window.storage.get === 'function');
+  const STORAGE_PREFIX = 'rc_';
+  async function sget(key) {
+    if (useArtifactStorage) {
+      try { const r = await window.storage.get(key); return r ? r.value : null; }
+      catch(e) { return null; }
+    }
+    try { return localStorage.getItem(STORAGE_PREFIX + key); } catch(e) { return null; }
+  }
+  async function sset(key, value) {
+    if (useArtifactStorage) {
+      try { await window.storage.set(key, value); return true; }
+      catch(e) { return false; }
+    }
+    try { localStorage.setItem(STORAGE_PREFIX + key, value); return true; } catch(e) { return false; }
+  }
+  async function sdel(key) {
+    if (useArtifactStorage) {
+      try { await window.storage.delete(key); return true; }
+      catch(e) { return false; }
+    }
+    try { localStorage.removeItem(STORAGE_PREFIX + key); return true; } catch(e) { return false; }
+  }
+  async function slist(prefix) {
+    if (useArtifactStorage) {
+      try { const r = await window.storage.list(prefix); return r ? r.keys : []; }
+      catch(e) { return []; }
+    }
+    try {
+      const out = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith(STORAGE_PREFIX + prefix)) out.push(k.slice(STORAGE_PREFIX.length));
+      }
+      return out;
+    } catch(e) { return []; }
+  }
+
+  /* ══════════════════ Constants ══════════════════ */
+  const STATUS_ORDER = ['active', 'paused', 'terminated'];
+  const STATUS_LABEL = { active: 'Active', paused: 'Paused', terminated: 'Terminated' };
+  const PERF_LABEL   = { high: 'High', average: 'Average', low: 'Low' };
+
+  const CUISINE_TYPES = [
+    'American','Asian Fusion','BBQ','Breakfast & Brunch','Burgers','Cajun & Creole',
+    'Caribbean','Chinese','Deli & Sandwiches','Desserts','Filipino','French','Greek',
+    'Indian','Italian','Japanese','Korean','Latin American','Mediterranean','Mexican',
+    'Middle Eastern','Pizza','Salads & Healthy','Seafood','Soul Food','Southern',
+    'Spanish','Steakhouse','Sushi','Tex-Mex','Thai','Vegan','Vegetarian','Vietnamese'
+  ];
+
+  const TIME_ZONES = [
+    { value: 'America/New_York',    label: 'Eastern (ET)' },
+    { value: 'America/Chicago',     label: 'Central (CT)' },
+    { value: 'America/Denver',      label: 'Mountain (MT)' },
+    { value: 'America/Phoenix',     label: 'Mountain — no DST (Arizona)' },
+    { value: 'America/Los_Angeles', label: 'Pacific (PT)' },
+    { value: 'America/Anchorage',   label: 'Alaska (AKT)' },
+    { value: 'Pacific/Honolulu',    label: 'Hawaii (HT)' },
+  ];
+
+  const SHIFT_TYPES = [
+    { key: 'breakfast',   label: 'Breakfast' },
+    { key: 'lunch',       label: 'Lunch' },
+    { key: 'shiftChange', label: 'Shift Change' },
+    { key: 'dinner',      label: 'Dinner' },
+  ];
+
+  const DAYS = [
+    { key: 'mon', label: 'Mo', name: 'Monday' },
+    { key: 'tue', label: 'Tu', name: 'Tuesday' },
+    { key: 'wed', label: 'We', name: 'Wednesday' },
+    { key: 'thu', label: 'Th', name: 'Thursday' },
+    { key: 'fri', label: 'Fr', name: 'Friday' },
+    { key: 'sat', label: 'Sa', name: 'Saturday' },
+    { key: 'sun', label: 'Su', name: 'Sunday' },
+  ];
+
+  // Preset day combinations exposed in the schedule dropdown.
+  const DAY_PRESETS = [
+    { key: '',         label: 'Not scheduled',        days: [] },
+    { key: 'daily',    label: 'Daily (all 7 days)',   days: ['mon','tue','wed','thu','fri','sat','sun'] },
+    { key: 'weekdays', label: 'Weekdays (Mon–Fri)',   days: ['mon','tue','wed','thu','fri'] },
+    { key: 'weekends', label: 'Weekends (Sat–Sun)',   days: ['sat','sun'] },
+    { key: 'mwf',      label: 'Mon · Wed · Fri',      days: ['mon','wed','fri'] },
+    { key: 'tth',      label: 'Tue · Thu',            days: ['tue','thu'] },
+  ];
+  function detectPreset(days) {
+    const sig = [...(days || [])].sort().join(',');
+    for (const p of DAY_PRESETS) {
+      if ([...p.days].sort().join(',') === sig) return p.key;
+    }
+    return null; // no match — caller should treat as custom
+  }
+  function daysForPreset(key) {
+    const p = DAY_PRESETS.find(x => x.key === key);
+    return p ? p.days.slice() : [];
+  }
+
+  function emptyShifts() {
+    const out = {};
+    SHIFT_TYPES.forEach(s => { out[s.key] = { start: '', end: '', days: [] }; });
+    return out;
+  }
+  function getShifts(site) {
+    const out = emptyShifts();
+    if (site && site.shifts && typeof site.shifts === 'object') {
+      SHIFT_TYPES.forEach(s => {
+        const v = site.shifts[s.key];
+        if (v) {
+          out[s.key].start = v.start || '';
+          out[s.key].end   = v.end   || '';
+          out[s.key].days  = Array.isArray(v.days) ? v.days.slice() : [];
+        }
+      });
+    }
+    return out;
+  }
+  function formatTime12(t) {
+    if (!t) return '';
+    const m = /^(\d{1,2}):(\d{2})$/.exec(t);
+    if (!m) return t;
+    let h = +m[1]; const mn = m[2];
+    const period = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    return `${h}:${mn} ${period}`;
+  }
+  function formatDays(days) {
+    if (!days || !days.length) return '(no days)';
+    if (days.length === 7) return 'Daily';
+    const wk = ['mon','tue','wed','thu','fri'];
+    const we = ['sat','sun'];
+    const allWk = wk.every(d => days.includes(d)) && days.length === 5;
+    const allWe = we.every(d => days.includes(d)) && days.length === 2;
+    if (allWk) return 'Mon–Fri';
+    if (allWe) return 'Sat–Sun';
+    const labels = { mon:'Mon', tue:'Tue', wed:'Wed', thu:'Thu', fri:'Fri', sat:'Sat', sun:'Sun' };
+    // Sort by week order before joining
+    const order = ['mon','tue','wed','thu','fri','sat','sun'];
+    return order.filter(d => days.includes(d)).map(d => labels[d]).join(' · ');
+  }
+
+  const FIELD_ALIASES = {
+    restaurantName: ['restaurant', 'restaurant name', 'name'],
+    profileUrl:     ['url', 'profile url', 'profile', 'link', 'website', 'snappea url', 'snappea link', 'snappea'],
+    contactName:    ['contact', 'contact name', 'contact person'],
+    cuisineType:    ['cuisine', 'cuisine type', 'type'],
+    phones:         ['phone', 'phones', 'phone number', 'phone numbers', 'tel', 'telephone'],
+    email:          ['email', 'email address', 'e-mail'],
+    notes:          ['notes', 'note', 'comment', 'comments'],
+    status:         ['status', 'state'],
+    statusReason:   ['reason', 'status reason'],
+    statusDate:     ['date', 'status date', 'effective date'],
+    performance:    ['performance', 'rating', 'tier'],
+  };
+
+  const SAMPLE_SITES = [
+    { name: 'Downtown',
+      snappeaLink: 'https://snappea.example.com/sites/downtown',
+      address: '123 Market St\nSan Francisco, CA 94103',
+      pocName: 'Alex Chen',
+      pocEmail: 'gma.downtown@example.com',
+      accountManager: 'Jordan Rivera',
+      shifts: {
+        breakfast:   { start: '',      end: '',      days: [] },
+        lunch:       { start: '11:00', end: '14:00', days: ['mon','tue','wed','thu','fri'] },
+        shiftChange: { start: '',      end: '',      days: [] },
+        dinner:      { start: '',      end: '',      days: [] },
+      },
+      timeZone: 'America/Los_Angeles',
+      contacts: [
+      { restaurantName: 'Maison Lumière',     contactName: 'Élise Marchand', profileUrl: 'https://snappea.example.com/vendor/maison-lumiere', cuisineType: 'French',   phones: ['415-555-0142', '415-555-0199'], email: 'elise@maisonlumiere.com',    notes: 'Prefers email before 11am. Strong partner for prix-fixe collabs.', status: 'active', performance: 'high',    isNew: true },
+      { restaurantName: 'Sakura House',       contactName: 'Kenji Tanaka',   profileUrl: 'https://snappea.example.com/vendor/sakura-house', cuisineType: 'Japanese', phones: ['415-555-0188'], email: 'kenji@sakurahouse.com',      notes: 'New omakase menu launches quarterly. Reach out two weeks ahead.',   status: 'active', performance: 'average', isNew: false },
+    ]},
+    { name: 'Airport',
+      snappeaLink: 'https://snappea.example.com/sites/airport',
+      address: 'Terminal 3, San Francisco International Airport\nSan Francisco, CA 94128',
+      pocName: 'Marcus Johnson',
+      pocEmail: 'gma.sfo.t3@example.com',
+      accountManager: 'Priya Shah',
+      shifts: {
+        breakfast:   { start: '06:00', end: '10:00', days: ['mon','tue','wed','thu','fri','sat','sun'] },
+        lunch:       { start: '11:00', end: '14:00', days: ['mon','tue','wed','thu','fri','sat','sun'] },
+        shiftChange: { start: '14:00', end: '15:00', days: ['mon','tue','wed','thu','fri'] },
+        dinner:      { start: '17:00', end: '20:00', days: ['mon','tue','wed','thu','fri','sat','sun'] },
+      },
+      timeZone: 'America/Los_Angeles',
+      contacts: [
+      { restaurantName: 'Trattoria del Sole', contactName: 'Marco Bianchi', profileUrl: 'https://snappea.example.com/vendor/trattoria-del-sole', cuisineType: 'Italian',  phones: ['415-555-0167'], email: 'marco@trattoriadelsole.com', notes: 'Renovation through Q2 — revisit availability in June.',           status: 'paused', statusReason: 'Renovation closure through Q2 2026.', statusDate: '2026-03-15', performance: 'low', isNew: false },
+    ]},
+  ];
+
+  /* ══════════════════ Icons ══════════════════ */
+  const ICON = {
+    search: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+    plus:   '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+    pencil: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+    trash:  '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>',
+    mail:   '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>',
+    upload: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
+    trendUp:   '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 15 12 9 18 15"/></svg>',
+    trendDown: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>',
+    trendFlat: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+    externalLink: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>',
+    gripVertical: '<svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor"><circle cx="3" cy="3" r="1.1"/><circle cx="7" cy="3" r="1.1"/><circle cx="3" cy="7" r="1.1"/><circle cx="7" cy="7" r="1.1"/><circle cx="3" cy="11" r="1.1"/><circle cx="7" cy="11" r="1.1"/></svg>',
+    chevronDown: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>',
+  };
+
+  // Sort contacts by custom order, falling back to alphabetical
+  function sortByOrder(a, b) {
+    const ao = (typeof a.order === 'number') ? a.order : Number.POSITIVE_INFINITY;
+    const bo = (typeof b.order === 'number') ? b.order : Number.POSITIVE_INFINITY;
+    if (ao !== bo) return ao - bo;
+    return (a.restaurantName || '').localeCompare(b.restaurantName || '');
+  }
+
+  /* ══════════════════ State ══════════════════ */
+  const state = {
+    sites: [],
+    contacts: [],
+    activeSiteId: null,
+    search: '',
+    editingContactId: null,
+    formData: emptyForm(),
+    formError: '',
+    cuisineOtherActive: false,
+    selectedIds: { active: new Set(), paused: new Set(), terminated: new Set() },
+    modal: null, // null | 'bulkAdd' | 'email' | 'bulkEmail' | 'form' | 'siteForm' | 'hiddenSites' | 'help'
+    modalState: {},
+    _focusId: null,
+    _dragging: null, // transient: { id, status } of contact currently being dragged
+    siteDropdownOpen: false,
+    siteInfoExpanded: false,
+    _searchFocused: false,
+  };
+
+  function emptyForm() {
+    return {
+      restaurantName: '', profileUrl: '', contactName: '', cuisineType: '',
+      phones: [''], email: '', notes: '',
+      status: 'active', statusReason: '', statusDate: '',
+      performance: '', isNew: true, siteId: null
+    };
+  }
+
+  /* ══════════════════ Helpers ══════════════════ */
+  function uid(prefix) { return prefix + '_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36); }
+  function escapeHtml(s) {
+    if (s == null) return '';
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function todayISO() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+  function formatStatusDate(iso) {
+    if (!iso) return '';
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+    if (!m) return iso;
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const d = new Date(+m[1], +m[2]-1, +m[3]);
+    return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+  }
+  function parseDateInput(s) {
+    if (!s) return '';
+    s = String(s).trim();
+    if (!s) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return null;
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+  function formatPhone(value) {
+    if (!value) return '';
+    const digits = String(value).replace(/\D/g, '');
+    if (digits.length === 0) return '';
+    if (digits.length === 11 && digits[0] === '1') {
+      return `1-${digits.slice(1, 4)}-${digits.slice(4, 7)}-${digits.slice(7)}`;
+    }
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+    return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
+  }
+  function safeUrl(url) {
+    if (!url) return '';
+    const trimmed = String(url).trim();
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    return '';
+  }
+
+  // Read phones from a contact, handling legacy single-phone data
+  function getPhones(c) {
+    if (Array.isArray(c.phones)) return c.phones.filter(p => p && String(p).trim());
+    if (c.phone) return [c.phone];
+    return [];
+  }
+
+  /* ══════════════════ Data layer ══════════════════ */
+  async function loadAll() {
+    const siteKeys = await slist('site:');
+    const contactKeys = await slist('contact:');
+    const sites = [];
+    for (const k of siteKeys) {
+      const v = await sget(k);
+      if (v) { try { sites.push(JSON.parse(v)); } catch(e) {} }
+    }
+    const contacts = [];
+    for (const k of contactKeys) {
+      const v = await sget(k);
+      if (v) { try { contacts.push(JSON.parse(v)); } catch(e) {} }
+    }
+    sites.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    if (sites.length === 0) {
+      // Seed sample data
+      for (const ss of SAMPLE_SITES) {
+        const site = {
+          id: uid('site'),
+          name: ss.name,
+          snappeaLink: ss.snappeaLink || '',
+          address: ss.address || '',
+          pocName: ss.pocName || '',
+          pocEmail: ss.pocEmail || '',
+          accountManager: ss.accountManager || '',
+          shifts: ss.shifts || emptyShifts(),
+          timeZone: ss.timeZone || '',
+          hidden: false,
+          createdAt: Date.now() + sites.length
+        };
+        await sset('site:' + site.id, JSON.stringify(site));
+        sites.push(site);
+        for (const c of ss.contacts) {
+          const contact = {
+            id: uid('contact'),
+            siteId: site.id,
+            restaurantName: c.restaurantName,
+            profileUrl: c.profileUrl || '',
+            contactName: c.contactName,
+            cuisineType: c.cuisineType,
+            phones: c.phones || (c.phone ? [c.phone] : []),
+            email: c.email,
+            notes: c.notes || '',
+            status: c.status || 'active',
+            statusReason: c.statusReason || '',
+            statusDate: c.statusDate || '',
+            performance: c.performance || '',
+            isNew: !!c.isNew,
+            updatedAt: Date.now(),
+          };
+          await sset('contact:' + contact.id, JSON.stringify(contact));
+          contacts.push(contact);
+        }
+      }
+    }
+    state.sites = sites;
+    state.contacts = contacts;
+
+    // Normalize order: any (site, status) group with at least one missing order gets sequential orders
+    // assigned (current sort order: existing order first, alphabetical fallback). Idempotent.
+    const groups = {};
+    for (const c of state.contacts) {
+      const key = c.siteId + '|' + c.status;
+      (groups[key] = groups[key] || []).push(c);
+    }
+    for (const key in groups) {
+      const list = groups[key];
+      const anyMissing = list.some(c => typeof c.order !== 'number');
+      if (!anyMissing) continue;
+      list.sort(sortByOrder);
+      for (let i = 0; i < list.length; i++) {
+        if (list[i].order !== i) {
+          list[i].order = i;
+          await sset('contact:' + list[i].id, JSON.stringify(list[i]));
+        }
+      }
+    }
+
+    if (!state.activeSiteId && sites.length) state.activeSiteId = sites[0].id;
+    state.formData.siteId = state.activeSiteId;
+  }
+  async function saveSite(site) {
+    if (!site.id) {
+      site.id = uid('site');
+      site.createdAt = Date.now();
+    }
+    const ok = await sset('site:' + site.id, JSON.stringify(site));
+    if (!ok) return false;
+    const idx = state.sites.findIndex(s => s.id === site.id);
+    if (idx >= 0) state.sites[idx] = site;
+    else state.sites.push(site);
+    return true;
+  }
+  async function deleteSiteAndContacts(siteId) {
+    const toRemove = state.contacts.filter(c => c.siteId === siteId);
+    for (const c of toRemove) await sdel('contact:' + c.id);
+    await sdel('site:' + siteId);
+    state.contacts = state.contacts.filter(c => c.siteId !== siteId);
+    state.sites = state.sites.filter(s => s.id !== siteId);
+  }
+  async function saveContact(contact) {
+    const isNewContact = !contact.id;
+    const previous = isNewContact ? null : state.contacts.find(c => c.id === contact.id);
+    if (isNewContact) contact.id = uid('contact');
+    contact.updatedAt = Date.now();
+    // Ensure phones is an array; drop legacy single phone field
+    if (!Array.isArray(contact.phones)) {
+      contact.phones = contact.phone ? [contact.phone] : [];
+    }
+    delete contact.phone;
+    // Assign order: new contact OR existing contact whose status just changed (move to end of new section)
+    const statusChanged = previous && previous.status !== contact.status;
+    if (isNewContact || statusChanged || typeof contact.order !== 'number') {
+      const others = state.contacts.filter(c =>
+        c.siteId === contact.siteId && c.status === contact.status && c.id !== contact.id
+      );
+      const maxOrder = others.reduce((m, c) => Math.max(m, c.order ?? -1), -1);
+      contact.order = maxOrder + 1;
+    }
+    if (contact.status === 'active') {
+      contact.statusReason = '';
+      contact.statusDate = '';
+    } else if (!contact.statusDate) {
+      contact.statusDate = todayISO();
+    }
+    const ok = await sset('contact:' + contact.id, JSON.stringify(contact));
+    if (!ok) return false;
+    const idx = state.contacts.findIndex(c => c.id === contact.id);
+    if (idx >= 0) state.contacts[idx] = contact;
+    else state.contacts.push(contact);
+    render();
+    return true;
+  }
+
+  async function reorderContact(draggedId, targetId, insertBefore, status) {
+    if (draggedId === targetId) return;
+    const list = state.contacts
+      .filter(c => c.siteId === state.activeSiteId && c.status === status)
+      .sort(sortByOrder);
+    const draggedIdx = list.findIndex(c => c.id === draggedId);
+    if (draggedIdx === -1) return;
+    const [dragged] = list.splice(draggedIdx, 1);
+    let targetIdx = list.findIndex(c => c.id === targetId);
+    if (targetIdx === -1) return;
+    if (!insertBefore) targetIdx++;
+    list.splice(targetIdx, 0, dragged);
+    // Reassign sequential orders and persist any that changed
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].order !== i) {
+        list[i].order = i;
+        list[i].updatedAt = Date.now();
+        await sset('contact:' + list[i].id, JSON.stringify(list[i]));
+      }
+    }
+    render();
+  }
+
+  async function removeContact(id) {
+    await sdel('contact:' + id);
+    state.contacts = state.contacts.filter(c => c.id !== id);
+    for (const status of STATUS_ORDER) state.selectedIds[status].delete(id);
+    if (state.editingContactId === id) {
+      state.editingContactId = null;
+      state.formData = emptyForm();
+      state.formData.siteId = state.activeSiteId;
+      state.cuisineOtherActive = false;
+    }
+    render();
+  }
+
+  /* ══════════════════ Site actions ══════════════════ */
+  function rcOpenSiteForm(siteId) {
+    const customMode = new Set();
+    if (siteId) {
+      const site = state.sites.find(s => s.id === siteId);
+      if (!site) return;
+      const shifts = getShifts(site);
+      SHIFT_TYPES.forEach(s => {
+        // If a shift has days that don't match any preset, treat it as custom
+        if (shifts[s.key].days.length > 0 && detectPreset(shifts[s.key].days) === null) {
+          customMode.add(s.key);
+        }
+      });
+      state.modalState = {
+        isEdit: true,
+        siteId: site.id,
+        name: site.name || '',
+        snappeaLink: site.snappeaLink || '',
+        address: site.address || '',
+        pocName: site.pocName || '',
+        pocEmail: site.pocEmail || '',
+        accountManager: site.accountManager || '',
+        shifts,
+        timeZone: site.timeZone || '',
+        customMode,
+        error: '',
+      };
+    } else {
+      state.modalState = {
+        isEdit: false,
+        siteId: '',
+        name: '',
+        snappeaLink: '',
+        address: '',
+        pocName: '',
+        pocEmail: '',
+        accountManager: '',
+        shifts: emptyShifts(),
+        timeZone: '',
+        customMode,
+        error: '',
+      };
+    }
+    state.modal = 'siteForm';
+    render();
+    setTimeout(() => document.getElementById('rc-sf-name')?.focus(), 50);
+  }
+
+  function readSiteFormFields() {
+    return {
+      name:           (document.getElementById('rc-sf-name')?.value || '').trim(),
+      snappeaLink:    (document.getElementById('rc-sf-snappeaLink')?.value || '').trim(),
+      address:        (document.getElementById('rc-sf-address')?.value || '').trim(),
+      pocName:        (document.getElementById('rc-sf-pocName')?.value || '').trim(),
+      pocEmail:       (document.getElementById('rc-sf-pocEmail')?.value || '').trim(),
+      accountManager: (document.getElementById('rc-sf-accountManager')?.value || '').trim(),
+      timeZone:       document.getElementById('rc-sf-timeZone')?.value || '',
+    };
+  }
+  function readShiftFields() {
+    // Reads start/end from inputs; days come from state.modalState.shifts (toggled in handlers)
+    const out = emptyShifts();
+    SHIFT_TYPES.forEach(s => {
+      out[s.key].start = document.getElementById(`rc-sf-shift-${s.key}-start`)?.value || '';
+      out[s.key].end   = document.getElementById(`rc-sf-shift-${s.key}-end`)?.value || '';
+      const inState = state.modalState.shifts && state.modalState.shifts[s.key];
+      out[s.key].days = inState && Array.isArray(inState.days) ? inState.days.slice() : [];
+    });
+    return out;
+  }
+
+  async function submitSiteForm() {
+    const fields = readSiteFormFields();
+    const shifts = readShiftFields();
+    Object.assign(state.modalState, fields, { shifts });
+
+    if (!fields.name)        return setSiteFormError('Site name is required.', 'rc-sf-name');
+    if (!fields.snappeaLink) return setSiteFormError('Snappea Link is required.', 'rc-sf-snappeaLink');
+    if (!safeUrl(fields.snappeaLink)) return setSiteFormError('Snappea Link must start with http:// or https://.', 'rc-sf-snappeaLink');
+    if (!fields.address)     return setSiteFormError('Address is required.', 'rc-sf-address');
+    if (!fields.pocName)     return setSiteFormError('POC / GMA Name is required.', 'rc-sf-pocName');
+    if (!fields.pocEmail)    return setSiteFormError('POC / GMA Email is required.', 'rc-sf-pocEmail');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.pocEmail)) return setSiteFormError('POC / GMA Email must be a valid email address.', 'rc-sf-pocEmail');
+    if (!fields.accountManager) return setSiteFormError('Account Manager is required.', 'rc-sf-accountManager');
+    if (!fields.timeZone)    return setSiteFormError('Time zone is required.', 'rc-sf-timeZone');
+
+    // Shifts: at least one shift must be configured (have days picked).
+    // Any shift with days picked must also have valid start and end times.
+    const labelFor = key => SHIFT_TYPES.find(s => s.key === key)?.label || key;
+    const configured = SHIFT_TYPES.map(s => s.key).filter(k => shifts[k].days.length > 0);
+    if (!configured.length) return setSiteFormError('Add at least one shift — pick days for Breakfast, Lunch, Shift Change, or Dinner.');
+    for (const k of configured) {
+      if (!shifts[k].start || !shifts[k].end) {
+        return setSiteFormError(`${labelFor(k)} needs both a start and end time.`, `rc-sf-shift-${k}-start`);
+      }
+      if (shifts[k].end <= shifts[k].start) {
+        return setSiteFormError(`${labelFor(k)} end time must be after its start time.`, `rc-sf-shift-${k}-end`);
+      }
+    }
+
+    let site;
+    if (state.modalState.isEdit) {
+      site = state.sites.find(s => s.id === state.modalState.siteId);
+      if (!site) return;
+      Object.assign(site, fields, { shifts });
+      // Drop legacy text field if it exists
+      if ('shiftTimes' in site) delete site.shiftTimes;
+    } else {
+      site = Object.assign({ id: '', hidden: false }, fields, { shifts });
+    }
+    const ok = await saveSite(site);
+    if (ok) {
+      if (!state.modalState.isEdit) {
+        state.activeSiteId = site.id;
+        state.formData.siteId = site.id;
+      }
+      state.modal = null;
+      state.modalState = {};
+      render();
+    }
+  }
+
+  function setSiteFormError(msg, focusId) {
+    state.modalState.error = msg;
+    render();
+    if (focusId) setTimeout(() => document.getElementById(focusId)?.focus(), 50);
+  }
+
+  async function hideSite(siteId) {
+    const site = state.sites.find(s => s.id === siteId);
+    if (!site) return;
+    site.hidden = true;
+    await saveSite(site);
+    // If the hidden site was active, switch to the next visible one
+    if (state.activeSiteId === siteId) {
+      const next = state.sites.find(s => !s.hidden);
+      state.activeSiteId = next?.id || null;
+      state.formData.siteId = state.activeSiteId;
+    }
+    if (state.modal === 'siteForm') {
+      state.modal = null;
+      state.modalState = {};
+    }
+    render();
+  }
+
+  async function showSite(siteId) {
+    const site = state.sites.find(s => s.id === siteId);
+    if (!site) return;
+    site.hidden = false;
+    await saveSite(site);
+    if (!state.activeSiteId) {
+      state.activeSiteId = siteId;
+      state.formData.siteId = siteId;
+    }
+    render();
+  }
+
+  async function deleteSite(siteId) {
+    const site = state.sites.find(s => s.id === siteId);
+    if (!site) return;
+    const count = state.contacts.filter(c => c.siteId === siteId).length;
+    const msg = count > 0
+      ? `Delete site "${site.name}" and all ${count} contact${count===1?'':'s'}? This cannot be undone.`
+      : `Delete site "${site.name}"?`;
+    if (!confirm(msg)) return;
+    await deleteSiteAndContacts(siteId);
+    if (state.activeSiteId === siteId) {
+      state.activeSiteId = state.sites.find(s => !s.hidden)?.id || null;
+      state.formData.siteId = state.activeSiteId;
+    }
+    if (state.modal === 'siteForm') {
+      state.modal = null;
+      state.modalState = {};
+    }
+    render();
+  }
+
+  function rcOpenHiddenSites() {
+    state.modal = 'hiddenSites';
+    state.modalState = {};
+    render();
+  }
+
+  /* ══════════════════ Form helpers ══════════════════ */
+  function rcOpenNewForm() {
+    if (!getActiveSite()) { alert('Add a site before adding a vendor.'); return; }
+    state.editingContactId = null;
+    state.formData = emptyForm();
+    state.formData.siteId = state.activeSiteId;
+    state.cuisineOtherActive = false;
+    state.formError = '';
+    state.modal = 'form';
+    render();
+    setTimeout(() => document.getElementById('rc-f-restaurantName')?.focus(), 50);
+  }
+  function startEdit(id) {
+    const c = state.contacts.find(x => x.id === id);
+    if (!c) return;
+    state.editingContactId = id;
+    state.formData = {
+      restaurantName: c.restaurantName || '',
+      profileUrl: c.profileUrl || '',
+      contactName: c.contactName || '',
+      cuisineType: c.cuisineType || '',
+      phones: getPhones(c).length ? getPhones(c) : [''],
+      email: c.email || '',
+      notes: c.notes || '',
+      status: c.status || 'active',
+      statusReason: c.statusReason || '',
+      statusDate: c.statusDate || '',
+      performance: c.performance || '',
+      isNew: !!c.isNew,
+      siteId: c.siteId,
+    };
+    state.cuisineOtherActive = !!c.cuisineType && !CUISINE_TYPES.includes(c.cuisineType);
+    state.formError = '';
+    state.modal = 'form';
+    render();
+  }
+  function cancelEdit() {
+    state.editingContactId = null;
+    state.formData = emptyForm();
+    state.formData.siteId = state.activeSiteId;
+    state.cuisineOtherActive = false;
+    state.formError = '';
+    state.modal = null;
+    render();
+  }
+  async function submitForm() {
+    state.formData.restaurantName = (document.getElementById('rc-f-restaurantName')?.value || '').trim();
+    state.formData.profileUrl     = (document.getElementById('rc-f-profileUrl')?.value || '').trim();
+    state.formData.contactName    = (document.getElementById('rc-f-contactName')?.value || '').trim();
+    {
+      const sel = document.getElementById('rc-f-cuisineType')?.value || '';
+      const other = (document.getElementById('rc-f-cuisineType-other')?.value || '').trim();
+      state.formData.cuisineType  = sel === '__other__' ? other : sel;
+    }
+    state.formData.phones = Array.from(document.querySelectorAll('.rc-phone-input'))
+      .map(el => formatPhone((el.value || '').trim()))
+      .filter(p => p.length > 0);
+    state.formData.email          = (document.getElementById('rc-f-email')?.value || '').trim();
+    state.formData.notes          = (document.getElementById('rc-f-notes')?.value || '').trim();
+    state.formData.statusReason   = (document.getElementById('rc-f-statusReason')?.value || '').trim();
+    state.formData.statusDate     = (document.getElementById('rc-f-statusDate')?.value || '').trim();
+    state.formData.isNew          = !!document.getElementById('rc-f-isNew')?.checked;
+    state.formData.siteId         = document.getElementById('rc-f-siteId')?.value || state.formData.siteId || state.activeSiteId;
+
+    if (!state.formData.restaurantName) { state.formError = 'Restaurant name is required.'; render(); return; }
+    if (!state.formData.contactName)    { state.formError = 'Contact name is required.';    render(); return; }
+    if (!state.formData.profileUrl) {
+      state.formError = 'Snappea URL is required.';
+      render();
+      setTimeout(() => document.getElementById('rc-f-profileUrl')?.focus(), 50);
+      return;
+    }
+    if (!safeUrl(state.formData.profileUrl)) {
+      state.formError = 'Snappea URL must start with http:// or https://.';
+      render();
+      setTimeout(() => document.getElementById('rc-f-profileUrl')?.focus(), 50);
+      return;
+    }
+    {
+      const sel = document.getElementById('rc-f-cuisineType')?.value || '';
+      if (!sel) {
+        state.formError = 'Cuisine type is required.';
+        render();
+        setTimeout(() => document.getElementById('rc-f-cuisineType')?.focus(), 50);
+        return;
+      }
+      if (sel === '__other__' && !state.formData.cuisineType) {
+        state.formError = 'Please specify the cuisine type when "Other" is selected.';
+        state.cuisineOtherActive = true;
+        render();
+        setTimeout(() => document.getElementById('rc-f-cuisineType-other')?.focus(), 50);
+        return;
+      }
+    }
+    if (!state.formData.phones.length) {
+      state.formError = 'At least one phone number is required.';
+      render();
+      setTimeout(() => document.querySelector('.rc-phone-input')?.focus(), 50);
+      return;
+    }
+    if (!state.formData.email) {
+      state.formError = 'Email is required.';
+      render();
+      setTimeout(() => document.getElementById('rc-f-email')?.focus(), 50);
+      return;
+    }
+    if (state.formData.status !== 'active') {
+      if (!state.formData.statusReason) {
+        state.formError = `A reason is required when status is "${STATUS_LABEL[state.formData.status]}".`;
+        render();
+        setTimeout(() => document.getElementById('rc-f-statusReason')?.focus(), 50);
+        return;
+      }
+      if (!state.formData.statusDate) {
+        state.formError = `An effective date is required when status is "${STATUS_LABEL[state.formData.status]}".`;
+        render();
+        setTimeout(() => document.getElementById('rc-f-statusDate')?.focus(), 50);
+        return;
+      }
+    }
+    const payload = Object.assign({}, state.formData);
+    if (state.editingContactId) payload.id = state.editingContactId;
+    const ok = await saveContact(payload);
+    if (ok) {
+      state.editingContactId = null;
+      state.formData = emptyForm();
+      state.formData.siteId = state.activeSiteId;
+      state.cuisineOtherActive = false;
+      state.formError = '';
+      state.modal = null;
+      render();
+    }
+  }
+
+  /* ══════════════════ Bulk add ══════════════════ */
+  function rcOpenBulkAdd() {
+    state.modal = 'bulkAdd';
+    state.modalState = { raw: '', parsed: [], error: '' };
+    render();
+  }
+  function rcCloseModal() {
+    state.modal = null;
+    state.modalState = {};
+    render();
+  }
+  function normalizeBulkRow(row) {
+    row.status = (row.status || 'active').toLowerCase();
+    if (!STATUS_ORDER.includes(row.status)) row.status = 'active';
+    if (row.status !== 'active' && !row.statusDate) row.statusDate = todayISO();
+    if (row.statusDate) {
+      const parsed = parseDateInput(row.statusDate);
+      row.statusDate = parsed === null ? '' : parsed;
+    }
+    if (row.phones) {
+      row.phones = String(row.phones).split(/[;|]/).map(p => formatPhone(p.trim())).filter(Boolean);
+    } else {
+      row.phones = [];
+    }
+    row.performance = (row.performance || '').toLowerCase();
+    if (!['high','average','low'].includes(row.performance)) row.performance = '';
+    return row;
+  }
+
+  // Reads an .xlsx/.xls/.csv File and returns a Promise resolving to { rows, error }.
+  function parseExcelFile(file) {
+    return new Promise(resolve => {
+      if (typeof XLSX === 'undefined') {
+        return resolve({ rows: [], error: 'Excel library failed to load. Check your internet connection and reopen this modal.' });
+      }
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          if (!workbook.SheetNames.length) return resolve({ rows: [], error: 'The file has no sheets.' });
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          const aoa = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
+          const trimmed = aoa.filter(r => r.some(cell => String(cell || '').trim().length));
+          if (trimmed.length < 2) return resolve({ rows: [], error: 'Need at least a header row and one data row.' });
+
+          const headers = trimmed[0].map(h => String(h || '').trim().toLowerCase());
+          const fieldMap = {};
+          headers.forEach((h, i) => {
+            for (const [field, aliases] of Object.entries(FIELD_ALIASES)) {
+              if (aliases.includes(h)) { fieldMap[field] = i; break; }
+            }
+          });
+          if (!('restaurantName' in fieldMap) || !('contactName' in fieldMap)) {
+            return resolve({ rows: [], error: 'Headers must include at least Restaurant Name and Contact Name.' });
+          }
+
+          const rows = [];
+          for (let i = 1; i < trimmed.length; i++) {
+            const cells = trimmed[i];
+            const row = {};
+            for (const [field, idx] of Object.entries(fieldMap)) {
+              row[field] = String(cells[idx] || '').trim();
+            }
+            if (!row.restaurantName || !row.contactName) continue;
+            rows.push(normalizeBulkRow(row));
+          }
+          if (!rows.length) return resolve({ rows: [], error: 'No valid rows. Each row needs at least Restaurant Name and Contact Name.' });
+          resolve({ rows });
+        } catch (err) {
+          resolve({ rows: [], error: 'Could not read this file. Make sure it is a valid .xlsx, .xls, or .csv.' });
+        }
+      };
+      reader.onerror = () => resolve({ rows: [], error: 'Failed to read file.' });
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
+  async function rcBulkFileSelected(file) {
+    if (!file) return;
+    state.modalState.fileName = file.name;
+    state.modalState.parsing = true;
+    state.modalState.error = '';
+    state.modalState.parsed = [];
+    render();
+    const { rows, error } = await parseExcelFile(file);
+    state.modalState.parsing = false;
+    state.modalState.error = error || '';
+    state.modalState.parsed = rows;
+    render();
+  }
+
+  async function rcBulkSubmit() {
+    const rows = state.modalState.parsed || [];
+    if (!rows.length) {
+      state.modalState.error = 'No rows to import. Choose a file first.';
+      render();
+      return;
+    }
+    const activeSite = getActiveSite();
+    if (!activeSite) return;
+    for (const row of rows) {
+      const id = uid('contact');
+      const contact = {
+        id,
+        restaurantName: row.restaurantName,
+        profileUrl: row.profileUrl || '',
+        contactName: row.contactName,
+        cuisineType: row.cuisineType || '',
+        phones: row.phones || [],
+        email: row.email || '',
+        notes: row.notes || '',
+        status: row.status || 'active',
+        statusReason: row.statusReason || '',
+        statusDate: row.statusDate || '',
+        performance: row.performance || '',
+        isNew: true,
+        siteId: activeSite.id,
+        updatedAt: Date.now(),
+      };
+      await sset('contact:' + id, JSON.stringify(contact));
+      state.contacts.push(contact);
+    }
+    rcCloseModal();
+  }
+
+  /* ══════════════════ Bulk email ══════════════════ */
+  function rcOpenEmail(status) {
+    const ids = Array.from(state.selectedIds[status] || []);
+    if (!ids.length) return;
+    const recipients = state.contacts
+      .filter(c => ids.includes(c.id))
+      .map(c => ({ name: c.contactName, email: c.email, restaurant: c.restaurantName }))
+      .filter(r => r.email);
+    if (!recipients.length) { alert('No selected contacts have an email address.'); return; }
+    state.modal = 'email';
+    state.modalState = { status, recipients, subject: '', body: '' };
+    render();
+  }
+
+  // Top-level bulk email — chooser for any contact in active site, defaults to Active only
+  function rcOpenBulkEmail() {
+    const activeSite = getActiveSite();
+    if (!activeSite) { alert('Add a site before sending bulk emails.'); return; }
+    const siteContacts = state.contacts.filter(c => c.siteId === activeSite.id && c.email);
+    if (!siteContacts.length) { alert('No contacts with email addresses in this site.'); return; }
+    const defaultSelected = new Set(siteContacts.filter(c => c.status === 'active').map(c => c.id));
+    state.modal = 'bulkEmail';
+    state.modalState = {
+      siteId: activeSite.id,
+      selected: defaultSelected,
+      subject: '',
+      body: '',
+    };
+    render();
+  }
+  // Derive current recipient list whether we're in the per-section or bulk-email modal
+  function rcEmailRecipients() {
+    if (state.modal === 'bulkEmail') {
+      const selected = state.modalState.selected || new Set();
+      return state.contacts
+        .filter(c => selected.has(c.id) && c.email)
+        .map(c => ({ name: c.contactName, email: c.email, restaurant: c.restaurantName }));
+    }
+    return state.modalState.recipients || [];
+  }
+
+  function rcEmailCopy() {
+    const recipients = rcEmailRecipients();
+    const emails = recipients.map(r => r.email).join('; ');
+    navigator.clipboard?.writeText(emails);
+    const btn = document.getElementById('rc-email-copy-btn');
+    if (btn) { const orig = btn.textContent; btn.textContent = 'Copied!'; setTimeout(() => { btn.textContent = orig; }, 1200); }
+  }
+  function rcEmailSend(mode) {
+    const recipients = rcEmailRecipients();
+    if (!recipients.length) { alert('No recipients selected.'); return; }
+    const isSingle = recipients.length === 1;
+    const subject = (document.getElementById('rc-email-subject')?.value || '').trim();
+    const body    = (document.getElementById('rc-email-body')?.value || '').trim();
+
+    if (mode === 'outlook') {
+      const params = new URLSearchParams();
+      if (subject) params.set('subject', subject);
+      if (body) params.set('body', body);
+      if (isSingle) {
+        // Single recipient → TO field (Outlook supports this in the deeplink)
+        params.set('to', recipients[0].email);
+        const url = 'https://outlook.office.com/mail/deeplink/compose?' + params.toString();
+        window.open(url, '_blank');
+      } else {
+        // Multiple → Outlook's deeplink can't carry BCC reliably, so copy and instruct
+        const emailsSemi = recipients.map(r => r.email).join('; ');
+        navigator.clipboard?.writeText(emailsSemi);
+        const url = 'https://outlook.office.com/mail/deeplink/compose?' + params.toString();
+        window.open(url, '_blank');
+        alert('Outlook Web is opening. Emails have been copied to your clipboard — paste them into the BCC field.');
+      }
+    } else {
+      const params = [];
+      if (subject) params.push('subject=' + encodeURIComponent(subject));
+      if (body) params.push('body=' + encodeURIComponent(body));
+      if (isSingle) {
+        // Single recipient → TO field
+        const url = 'mailto:' + encodeURIComponent(recipients[0].email) + (params.length ? '?' + params.join('&') : '');
+        window.location.href = url;
+      } else {
+        // Multiple → BCC for privacy
+        const bccComma = recipients.map(r => r.email).join(',');
+        params.push('bcc=' + encodeURIComponent(bccComma));
+        const url = 'mailto:?' + params.join('&');
+        window.location.href = url;
+      }
+    }
+  }
+
+  /* ══════════════════ Derived ══════════════════ */
+  function getActiveSite() { return state.sites.find(s => s.id === state.activeSiteId) || null; }
+  function getSiteCounts(siteId) {
+    const counts = { active: 0, paused: 0, terminated: 0, total: 0 };
+    for (const c of state.contacts) {
+      if (c.siteId !== siteId) continue;
+      counts.total++;
+      if (counts[c.status] != null) counts[c.status]++;
+    }
+    return counts;
+  }
+  function getFilteredContacts(status) {
+    const q = (state.search || '').toLowerCase().trim();
+    return state.contacts
+      .filter(c => c.siteId === state.activeSiteId && c.status === status)
+      .filter(c => {
+        if (!q) return true;
+        const phoneStr = getPhones(c).join(' ');
+        return [c.restaurantName, c.contactName, c.cuisineType, c.email, phoneStr, c.notes]
+          .some(v => (v || '').toLowerCase().includes(q));
+      })
+      .sort(sortByOrder);
+  }
+
+  /* ══════════════════ Render: Subnav (sites) ══════════════════ */
+  function renderSubnav() {
+    const nav = document.getElementById('rc-sites-nav');
+    if (!nav) return;
+    const visibleSites = state.sites.filter(s => !s.hidden);
+    const hiddenSites  = state.sites.filter(s => s.hidden);
+    const activeSite   = state.sites.find(s => s.id === state.activeSiteId);
+    const activeCounts = activeSite ? getSiteCounts(activeSite.id) : null;
+
+    const items = visibleSites.length
+      ? visibleSites.map(s => {
+          const counts = getSiteCounts(s.id);
+          const isActive = s.id === state.activeSiteId;
+          return `<button type="button" class="rc-site-dropdown-item ${isActive ? 'active' : ''}" data-site="${s.id}">
+            <span>${escapeHtml(s.name)}</span>
+            <span class="rc-count">${counts.total}</span>
+          </button>`;
+        }).join('')
+      : `<div class="rc-site-dropdown-empty">No sites yet. Use + Add Site to create one.</div>`;
+
+    const dropdown = `<div class="rc-site-dropdown ${state.siteDropdownOpen ? 'open' : ''}">
+      <button type="button" class="rc-site-dropdown-btn" data-action="toggle-site-dropdown" aria-haspopup="listbox" aria-expanded="${state.siteDropdownOpen ? 'true' : 'false'}">
+        <span>${activeSite ? escapeHtml(activeSite.name) : 'Select a site'}</span>
+        ${activeCounts ? `<span class="rc-count">${activeCounts.total}</span>` : ''}
+        <span class="rc-chevron">${ICON.chevronDown}</span>
+      </button>
+      <div class="rc-site-dropdown-menu" role="listbox">${items}</div>
+    </div>`;
+
+    const sep = '<span class="rc-subnav-sep" aria-hidden="true"></span>';
+    const addBtn = `<button class="rc-subnav-btn rc-subnav-add mise-team-plus" data-action="open-site-form" data-id="" title="Add a new site">${ICON.plus}<span>Add Site</span></button>`;
+    const hiddenBtn = hiddenSites.length
+      ? `<button class="rc-subnav-btn rc-subnav-hidden" data-action="open-hidden-sites" title="View hidden sites"><span>${hiddenSites.length} hidden</span></button>`
+      : '';
+
+    nav.innerHTML = dropdown + sep + addBtn + hiddenBtn;
+  }
+
+  /* ══════════════════ Render: Status sections ══════════════════ */
+  function renderStatusBlock(status) {
+    const list = getFilteredContacts(status);
+    if (status !== 'active' && list.length === 0) return ''; // hide empty paused/terminated
+    const selSet = state.selectedIds[status];
+    const visibleIds = list.map(c => c.id);
+    const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selSet.has(id));
+    const selCount = visibleIds.filter(id => selSet.has(id)).length;
+    return `
+      <div class="rc-block">
+        <div class="rc-block-head">
+          <h2>${STATUS_LABEL[status]} Restaurants <span class="rc-tag">${list.length}</span></h2>
+          ${status === 'active' ? `<button class="rc-btn-head" data-action="open-new-form">${ICON.plus} Add New Vendor</button>` : ''}
+        </div>
+        ${selCount > 0 ? `
+          <div class="rc-selection-bar">
+            <div><strong>${selCount}</strong> selected in this section</div>
+            <div class="rc-selection-actions">
+              <button class="rc-btn rc-btn-ghost rc-btn-sm" data-action="email-selected" data-status="${status}">${ICON.mail} Email</button>
+              <button class="rc-btn rc-btn-ghost rc-btn-sm" data-action="clear-selected" data-status="${status}">Clear</button>
+            </div>
+          </div>` : ''}
+        <div class="rc-block-body">
+          ${list.length === 0
+            ? `<div class="rc-empty">No <span class="rc-empty-strong">${STATUS_LABEL[status].toLowerCase()}</span> restaurants in this site yet.</div>`
+            : `<div class="rc-table-wrap"><table class="rc-table">
+                <thead>
+                  <tr>
+                    <th class="rc-drag-cell"></th>
+                    <th class="rc-check-cell"><input type="checkbox" class="rc-check-all" data-status="${status}" ${allVisibleSelected ? 'checked' : ''} title="Select all in this section" /></th>
+                    <th>Restaurant</th>
+                    <th>Cuisine</th>
+                    <th>Contact</th>
+                    <th>Performance</th>
+                    <th>Status</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${list.map(c => renderContactRow(c, status)).join('')}
+                </tbody>
+              </table></div>`}
+        </div>
+      </div>`;
+  }
+
+  function renderContactRow(c, sectionStatus) {
+    const sel = state.selectedIds[sectionStatus];
+    const isSel = sel ? sel.has(c.id) : false;
+    const perfLabel = PERF_LABEL[c.performance] || '';
+    const perfIcon  = c.performance === 'high' ? ICON.trendUp : c.performance === 'low' ? ICON.trendDown : c.performance === 'average' ? ICON.trendFlat : '';
+    const linkUrl = safeUrl(c.profileUrl);
+    const phones = getPhones(c);
+    const nameHtml = linkUrl
+      ? `<a class="rc-restaurant-link" href="${escapeHtml(linkUrl)}" target="_blank" rel="noopener noreferrer" draggable="false">${escapeHtml(c.restaurantName)}<span class="rc-link-icon">${ICON.externalLink}</span></a>`
+      : `<span class="rc-restaurant-name">${escapeHtml(c.restaurantName)}</span>`;
+    const editingHere = state.editingContactId === c.id;
+    return `
+      <tr class="rc-contact-row ${isSel ? 'is-selected' : ''}" draggable="true" data-id="${c.id}" data-status="${sectionStatus}">
+        <td class="rc-drag-cell" title="Drag to reorder">
+          <span class="rc-drag-handle" aria-hidden="true">${ICON.gripVertical}</span>
+        </td>
+        <td class="rc-check-cell"><input type="checkbox" class="rc-row-check" data-id="${c.id}" data-status="${sectionStatus}" ${isSel ? 'checked' : ''} /></td>
+        <td>
+          ${nameHtml}${c.isNew ? '<span class="rc-new-badge">NEW</span>' : ''}
+          ${phones.map(p => `<div class="rc-contact-line">${escapeHtml(p)}</div>`).join('')}
+          ${c.email ? `<div class="rc-contact-line">${escapeHtml(c.email)}</div>` : ''}
+        </td>
+        <td>
+          ${c.cuisineType ? `<span class="rc-cuisine-tag">${escapeHtml(c.cuisineType)}</span>` : '<span style="color:var(--text-muted)">—</span>'}
+        </td>
+        <td style="color: var(--text-primary);">${escapeHtml(c.contactName)}</td>
+        <td>
+          ${c.performance
+            ? `<div class="rc-perf ${c.performance}">${perfIcon}${perfLabel}</div>`
+            : `<div class="rc-perf rc-perf-empty">—</div>`}
+        </td>
+        <td>
+          <span class="rc-status-pill ${c.status}"><span class="rc-dot"></span>${(STATUS_LABEL[c.status]||'').toUpperCase()}</span>
+          ${c.status !== 'active' && c.statusDate ? `<div class="rc-status-date">Since ${escapeHtml(formatStatusDate(c.statusDate))}</div>` : ''}
+          ${c.status !== 'active' && c.statusReason ? `<div class="rc-status-reason">${escapeHtml(c.statusReason)}</div>` : ''}
+        </td>
+        <td style="text-align:right; white-space:nowrap;">
+          <div class="rc-row-actions ${editingHere ? 'is-editing' : ''}">
+            <button class="rc-row-btn ${editingHere ? 'is-editing' : ''}" data-action="edit-contact" data-id="${c.id}" title="Edit">${ICON.pencil}</button>
+            <button class="rc-row-btn danger" data-action="remove-contact" data-id="${c.id}" title="Remove">${ICON.trash}</button>
+          </div>
+        </td>
+      </tr>`;
+  }
+
+  /* ══════════════════ Render: Main column ══════════════════ */
+  function renderSiteInfoBlock(site) {
+    const shifts = getShifts(site);
+    const configured = SHIFT_TYPES.filter(s => shifts[s.key].days.length > 0);
+    const tzLabel = TIME_ZONES.find(t => t.value === site.timeZone)?.label || site.timeZone || '—';
+    const snappeaUrl = safeUrl(site.snappeaLink);
+    const expanded = !!state.siteInfoExpanded;
+    return `
+      <div class="rc-block">
+        <div class="rc-block-head">
+          <h2>
+            <span class="rc-collapsible-trigger ${expanded ? 'expanded' : ''}" data-action="toggle-site-info" role="button" tabindex="0" aria-expanded="${expanded ? 'true' : 'false'}">
+              ${escapeHtml(site.name)}
+              <span class="rc-tag">Site Info</span>
+              <span class="rc-chevron">${ICON.chevronDown}</span>
+            </span>
+          </h2>
+          <button class="rc-btn-head" data-action="open-site-form" data-id="${site.id}" title="Edit site">${ICON.pencil} Edit Site</button>
+        </div>
+        ${expanded ? `<div class="rc-block-body rc-padded">
+          <div class="rc-site-info">
+            <div class="rc-info-section">
+              <div class="rc-info-row">
+                <div class="rc-info-label">Address</div>
+                <div class="rc-info-value rc-info-value-multiline">${site.address ? escapeHtml(site.address) : '<span style="color:var(--text-muted)">—</span>'}</div>
+              </div>
+              <div class="rc-info-row">
+                <div class="rc-info-label">Account Manager</div>
+                <div class="rc-info-value">${site.accountManager ? escapeHtml(site.accountManager) : '<span style="color:var(--text-muted)">—</span>'}</div>
+              </div>
+              <div class="rc-info-row">
+                <div class="rc-info-label">POC / GMA</div>
+                <div class="rc-info-value rc-info-stack">${site.pocName || site.pocEmail
+                  ? `${site.pocName ? `<div>${escapeHtml(site.pocName)}</div>` : ''}${site.pocEmail ? `<div><a class="rc-info-link" href="mailto:${escapeHtml(site.pocEmail)}">${escapeHtml(site.pocEmail)}</a></div>` : ''}`
+                  : '<span style="color:var(--text-muted)">—</span>'}</div>
+              </div>
+              <div class="rc-info-row">
+                <div class="rc-info-label">Time Zone</div>
+                <div class="rc-info-value">${escapeHtml(tzLabel)}</div>
+              </div>
+              <div class="rc-info-row">
+                <div class="rc-info-label">Snappea Link</div>
+                <div class="rc-info-value">${snappeaUrl
+                  ? `<a class="rc-info-link" href="${escapeHtml(snappeaUrl)}" target="_blank" rel="noopener noreferrer">Open in Snappea ${ICON.externalLink}</a>`
+                  : '<span style="color:var(--text-muted)">—</span>'}</div>
+              </div>
+            </div>
+            <div class="rc-info-section">
+              <div class="rc-info-label">Shift Schedule</div>
+              <div class="rc-schedule">
+                ${configured.length === 0
+                  ? '<div class="rc-schedule-empty">No shifts configured yet. Click Edit Site to add some.</div>'
+                  : configured.map(s => {
+                      const sh = shifts[s.key];
+                      return `<div class="rc-schedule-row">
+                        <div class="rc-schedule-name">${s.label}</div>
+                        <div class="rc-schedule-time">${escapeHtml(formatTime12(sh.start))} – ${escapeHtml(formatTime12(sh.end))}</div>
+                        <div class="rc-schedule-days">${escapeHtml(formatDays(sh.days))}</div>
+                      </div>`;
+                    }).join('')}
+              </div>
+            </div>
+          </div>
+        </div>` : ''}
+      </div>`;
+  }
+
+  function getSearchResults() {
+    const q = (state.search || '').toLowerCase().trim();
+    if (!q) return { sites: [], contacts: [] };
+    const sites = state.sites
+      .filter(s => !s.hidden && (s.name || '').toLowerCase().includes(q));
+    const contacts = state.contacts.filter(c => {
+      const site = state.sites.find(s => s.id === c.siteId);
+      if (!site || site.hidden) return false;
+      const phones = getPhones(c).join(' ');
+      return [c.restaurantName, c.contactName, c.email, phones, c.notes, c.cuisineType]
+        .filter(Boolean).join(' ').toLowerCase().includes(q);
+    });
+    return { sites, contacts };
+  }
+
+  function renderSearchResultsDropdown() {
+    const q = (state.search || '').trim();
+    if (!q || !state._searchFocused) return '';
+    const { sites, contacts } = getSearchResults();
+    if (sites.length === 0 && contacts.length === 0) {
+      return `<div class="rc-search-results">
+        <div class="rc-search-empty">No matches for "${escapeHtml(q)}"</div>
+      </div>`;
+    }
+    const sitesHtml = sites.length ? `
+      <div class="rc-search-section">
+        <div class="rc-search-section-title">Sites · ${sites.length}</div>
+        ${sites.map(s => {
+          const counts = getSiteCounts(s.id);
+          return `<button type="button" class="rc-search-result" data-action="search-pick-site" data-id="${s.id}">
+            <div class="rc-search-result-main">${escapeHtml(s.name)}</div>
+            <div class="rc-search-result-meta">${counts.total} vendor${counts.total === 1 ? '' : 's'}</div>
+          </button>`;
+        }).join('')}
+      </div>` : '';
+    const contactsHtml = contacts.length ? `
+      <div class="rc-search-section">
+        <div class="rc-search-section-title">Restaurants · ${contacts.length}</div>
+        ${contacts.map(c => {
+          const site = state.sites.find(s => s.id === c.siteId);
+          const phones = getPhones(c);
+          const metaBits = [
+            site ? `at ${escapeHtml(site.name)}` : '',
+            c.contactName ? escapeHtml(c.contactName) : '',
+            phones[0] ? escapeHtml(phones[0]) : '',
+            c.email ? escapeHtml(c.email) : ''
+          ].filter(Boolean);
+          return `<button type="button" class="rc-search-result" data-action="search-pick-contact" data-id="${c.id}" data-site="${c.siteId}">
+            <div class="rc-search-result-main">${escapeHtml(c.restaurantName)}</div>
+            <div class="rc-search-result-meta">${metaBits.join(' · ')}</div>
+          </button>`;
+        }).join('')}
+      </div>` : '';
+    return `<div class="rc-search-results">${sitesHtml}${contactsHtml}</div>`;
+  }
+
+  function renderMain() {
+    const main = document.getElementById('rc-content');
+    if (!main) return;
+    const activeSite = getActiveSite();
+    const visibleSites = state.sites.filter(s => !s.hidden);
+    if (!activeSite || !visibleSites.length) {
+      const hasHidden = state.sites.some(s => s.hidden);
+      main.innerHTML = `<div class="rc-block"><div class="rc-block-body rc-padded"><div class="rc-empty">
+        No active site. ${hasHidden ? `Click <strong>${state.sites.filter(s => s.hidden).length} hidden</strong> in the bar above to unhide one, or ` : ''}click <strong>+ Add Site</strong> to create one.
+      </div></div></div>`;
+      return;
+    }
+    const searchBar = `
+      <div class="rc-global-search">
+        <span class="rc-search-icon">${ICON.search}</span>
+        <input type="text" id="rc-search-input" placeholder="Search restaurants, contacts, phones, emails, sites…" value="${escapeHtml(state.search)}" autocomplete="off" />
+        ${state.search ? '<button type="button" class="rc-search-clear" data-action="clear-search" title="Clear search">×</button>' : ''}
+        ${renderSearchResultsDropdown()}
+      </div>`;
+    const siteInfo = renderSiteInfoBlock(activeSite);
+    const blocks = STATUS_ORDER.map(renderStatusBlock).join('');
+    const anyEmpty = !state.contacts.some(c => c.siteId === activeSite.id);
+    const emptySite = anyEmpty && !state.search
+      ? `<div class="rc-block"><div class="rc-block-body rc-padded">
+          <div class="rc-empty">
+            No contacts in <span class="rc-empty-strong">${escapeHtml(activeSite.name)}</span> yet.
+            Click <strong>+ Add New Vendor</strong> on the Active Restaurants bar below to add your first one.
+          </div>
+        </div></div>`
+      : '';
+    main.innerHTML = searchBar + siteInfo + blocks + (anyEmpty && !state.search ? emptySite : '');
+  }
+
+  /* ══════════════════ Render: Form (right column) ══════════════════ */
+  function renderFormModal(mount) {
+    const editing = !!state.editingContactId;
+    mount.innerHTML = `
+      <div class="rc-modal open" id="rc-modal" role="dialog" aria-modal="true">
+        <div class="rc-modal-card" style="width: 600px;">
+          <div class="rc-modal-title">${editing ? 'Edit Contact' : 'Add New Vendor'}</div>
+          <div class="rc-modal-sub">
+            ${editing ? "Update this contact's information." : "Fill in the vendor's information below. Required fields are marked with *."}
+          </div>
+
+          ${state.formError ? `<div class="rc-form-error">${escapeHtml(state.formError)}</div>` : ''}
+
+          <div class="rc-field">
+            <label class="rc-label" for="rc-f-restaurantName">Restaurant Name <span class="rc-required">*</span></label>
+            <input type="text" id="rc-f-restaurantName" class="rc-input" value="${escapeHtml(state.formData.restaurantName)}" />
+          </div>
+
+          <div class="rc-field">
+            <label class="rc-label" for="rc-f-profileUrl">Snappea URL <span class="rc-required">*</span></label>
+            <input type="url" id="rc-f-profileUrl" class="rc-input" placeholder="https://snappea.example.com/vendor/123" value="${escapeHtml(state.formData.profileUrl || '')}" />
+            <div class="rc-hint">Required. Clicking the restaurant name in the table opens this link in a new tab.</div>
+          </div>
+
+          <div class="rc-field">
+            <label class="rc-label" for="rc-f-contactName">Contact Name <span class="rc-required">*</span></label>
+            <input type="text" id="rc-f-contactName" class="rc-input" value="${escapeHtml(state.formData.contactName)}" />
+          </div>
+
+          <div class="rc-field">
+            <label class="rc-label" for="rc-f-cuisineType">Cuisine Type <span class="rc-required">*</span></label>
+            <select id="rc-f-cuisineType" class="rc-input">
+              <option value="">Choose a cuisine…</option>
+              ${CUISINE_TYPES.map(c => `<option value="${escapeHtml(c)}" ${state.formData.cuisineType === c && !state.cuisineOtherActive ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
+              <option value="__other__" ${state.cuisineOtherActive ? 'selected' : ''}>Other…</option>
+            </select>
+            ${state.cuisineOtherActive ? `<input type="text" id="rc-f-cuisineType-other" class="rc-input" placeholder="Specify cuisine type (required)" value="${escapeHtml(state.formData.cuisineType)}" style="margin-top:6px;" />` : ''}
+          </div>
+
+          <div class="rc-field">
+            <label class="rc-label">Phone <span class="rc-required">*</span></label>
+            <div class="rc-phone-list">
+              ${(state.formData.phones && state.formData.phones.length ? state.formData.phones : ['']).map((p, idx) => `
+                <div class="rc-phone-row">
+                  <input type="tel" class="rc-input rc-phone-input" data-idx="${idx}" placeholder="123-456-7890" value="${escapeHtml(p)}" />
+                  ${(state.formData.phones && state.formData.phones.length > 1) ? `<button type="button" class="rc-phone-remove" data-idx="${idx}" title="Remove this phone">×</button>` : ''}
+                </div>
+              `).join('')}
+            </div>
+            <button type="button" class="rc-phone-add" data-action="phone-add">+ Add another phone</button>
+          </div>
+
+          <div class="rc-field">
+            <label class="rc-label" for="rc-f-email">Email <span class="rc-required">*</span></label>
+            <input type="email" id="rc-f-email" class="rc-input" value="${escapeHtml(state.formData.email)}" />
+          </div>
+
+          <div class="rc-field">
+            <label class="rc-label" for="rc-f-siteId">Site <span class="rc-required">*</span></label>
+            <select id="rc-f-siteId" class="rc-input">
+              ${state.sites.map(s => `<option value="${s.id}" ${s.id === (state.formData.siteId || state.activeSiteId) ? 'selected' : ''}>${escapeHtml(s.name)}</option>`).join('')}
+            </select>
+          </div>
+
+          <div class="rc-field">
+            <label class="rc-label">Status <span class="rc-required">*</span></label>
+            <div class="rc-seg" data-seg="status">
+              ${STATUS_ORDER.map(s => `<button type="button" class="rc-seg-btn ${state.formData.status === s ? 'active' : ''}" data-val="${s}">${STATUS_LABEL[s]}</button>`).join('')}
+            </div>
+          </div>
+
+          <div class="rc-field">
+            <label class="rc-checkbox-row">
+              <input type="checkbox" id="rc-f-isNew" ${state.formData.isNew ? 'checked' : ''} />
+              <span>New vendor — uncheck after first event</span>
+            </label>
+          </div>
+
+          ${state.formData.status !== 'active' ? `
+            <div class="rc-field">
+              <label class="rc-label" for="rc-f-statusDate">Effective Date <span class="rc-required">*</span></label>
+              <input type="date" id="rc-f-statusDate" class="rc-input" value="${escapeHtml(state.formData.statusDate || todayISO())}" />
+            </div>
+            <div class="rc-field">
+              <label class="rc-label" for="rc-f-statusReason">Reason <span class="rc-required">*</span></label>
+              <textarea id="rc-f-statusReason" class="rc-input" rows="2" placeholder="Why is this contact ${STATUS_LABEL[state.formData.status].toLowerCase()}?">${escapeHtml(state.formData.statusReason)}</textarea>
+            </div>` : ''}
+
+          <div class="rc-field">
+            <label class="rc-label">Performance</label>
+            <div class="rc-seg" data-seg="performance">
+              <button type="button" class="rc-seg-btn ${state.formData.performance === '' ? 'active' : ''}" data-val="">—</button>
+              <button type="button" class="rc-seg-btn ${state.formData.performance === 'high' ? 'active' : ''}" data-val="high">High</button>
+              <button type="button" class="rc-seg-btn ${state.formData.performance === 'average' ? 'active' : ''}" data-val="average">Average</button>
+              <button type="button" class="rc-seg-btn ${state.formData.performance === 'low' ? 'active' : ''}" data-val="low">Low</button>
+            </div>
+          </div>
+
+          <div class="rc-field">
+            <label class="rc-label" for="rc-f-notes">Notes</label>
+            <textarea id="rc-f-notes" class="rc-input" rows="3" placeholder="Anything the team should know…">${escapeHtml(state.formData.notes)}</textarea>
+          </div>
+
+          <div class="rc-modal-actions">
+            <button class="rc-btn rc-btn-ghost" data-action="cancel-edit">Cancel</button>
+            <button class="rc-btn rc-btn-primary" data-action="submit-form">${editing ? 'Save Changes' : 'Add Contact'}</button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  /* ══════════════════ Render: Modal ══════════════════ */
+  function renderModal() {
+    const mount = document.getElementById('rc-modal-mount');
+    if (!mount) return;
+    if (!state.modal) { mount.innerHTML = ''; return; }
+    if (state.modal === 'bulkAdd')      return renderBulkAddModal(mount);
+    if (state.modal === 'email')        return renderEmailModal(mount);
+    if (state.modal === 'bulkEmail')    return renderBulkEmailModal(mount);
+    if (state.modal === 'form')         return renderFormModal(mount);
+    if (state.modal === 'siteForm')     return renderSiteFormModal(mount);
+    if (state.modal === 'hiddenSites')  return renderHiddenSitesModal(mount);
+    if (state.modal === 'help')         return renderHelpModal(mount);
+  }
+  function renderBulkAddModal(mount) {
+    const activeSite = getActiveSite();
+    const { parsed = [], error = '', fileName = '', parsing = false } = state.modalState || {};
+    mount.innerHTML = `
+      <div class="rc-modal open" id="rc-modal" role="dialog" aria-modal="true">
+        <div class="rc-modal-card">
+          <div class="rc-modal-title">Bulk Add Contacts</div>
+          <div class="rc-modal-sub">
+            Upload an Excel file (.xlsx, .xls) or .csv. <strong>First row must be headers.</strong>
+            Recognized columns: <code>Restaurant Name</code>, <code>Snappea URL</code>, <code>Contact Name</code>, <code>Cuisine</code>, <code>Phone</code>, <code>Email</code>, <code>Status</code>, <code>Reason</code>, <code>Date</code>, <code>Performance</code>, <code>Notes</code>.
+            For multiple phones in one cell, separate with <code>;</code> or <code>|</code>.
+            All rows will be added to <strong>${escapeHtml(activeSite?.name || '')}</strong>.
+          </div>
+
+          <label class="rc-bulk-drop" id="rc-bulk-drop" for="rc-bulk-file">
+            <div class="rc-bulk-drop-icon">📊</div>
+            <div class="rc-bulk-drop-primary">${fileName ? escapeHtml(fileName) : 'Choose Excel file or drag-and-drop here'}</div>
+            <div class="rc-bulk-drop-secondary">${parsing ? 'Reading file…' : (fileName ? 'Click to choose a different file' : '.xlsx · .xls · .csv')}</div>
+            <input type="file" id="rc-bulk-file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" style="display:none;" />
+          </label>
+
+          ${error ? `<div class="rc-form-error" style="margin-top:10px;">${escapeHtml(error)}</div>` : ''}
+          ${parsed.length ? `
+            <div class="rc-preview">
+              ${parsed.slice(0, 50).map(r => `
+                <div class="rc-preview-row">
+                  <div class="rc-preview-name">${escapeHtml(r.restaurantName)} <span class="rc-preview-meta">— ${escapeHtml(r.contactName)}</span></div>
+                  <div class="rc-preview-meta">${escapeHtml(r.cuisineType || '—')} · ${escapeHtml(STATUS_LABEL[r.status] || 'Active')}</div>
+                </div>`).join('')}
+              ${parsed.length > 50 ? `<div class="rc-preview-row"><div class="rc-preview-meta">…and ${parsed.length - 50} more.</div></div>` : ''}
+            </div>
+            <div class="rc-hint" style="margin-top:8px;">${parsed.length} valid row${parsed.length === 1 ? '' : 's'} ready to import.</div>
+          ` : ''}
+          <div class="rc-modal-actions">
+            <button class="rc-btn rc-btn-ghost" data-action="close-modal">Cancel</button>
+            <button class="rc-btn rc-btn-primary" data-action="bulk-submit" ${parsed.length ? '' : 'disabled style="opacity:0.5; cursor:not-allowed;"'}>Import ${parsed.length || ''}</button>
+          </div>
+        </div>
+      </div>`;
+  }
+  function renderEmailModal(mount) {
+    const { recipients = [], status } = state.modalState || {};
+    const isSingle = recipients.length === 1;
+    const fieldNote = isSingle
+      ? `Sending to one recipient — they'll be addressed in the <strong>TO</strong> field.`
+      : `Multiple recipients — addresses go to <strong>BCC</strong> so they can't see each other.`;
+    mount.innerHTML = `
+      <div class="rc-modal open" id="rc-modal" role="dialog" aria-modal="true">
+        <div class="rc-modal-card">
+          <div class="rc-modal-title">Email ${recipients.length} ${STATUS_LABEL[status] || ''} contact${recipients.length === 1 ? '' : 's'}</div>
+          <div class="rc-modal-sub">
+            ${fieldNote}
+            Two options: open your default mail app, or open Outlook on the web
+            (for multiple recipients we'll copy the addresses to your clipboard so you can paste them into BCC).
+          </div>
+          <div class="rc-field">
+            <label class="rc-label" for="rc-email-subject">Subject</label>
+            <input type="text" id="rc-email-subject" class="rc-input" placeholder="(Optional)" />
+          </div>
+          <div class="rc-field">
+            <label class="rc-label" for="rc-email-body">Message</label>
+            <textarea id="rc-email-body" class="rc-input" rows="6" placeholder="(Optional — write your message here)"></textarea>
+          </div>
+          <div class="rc-preview">
+            ${recipients.map(r => `<div class="rc-preview-row">
+              <div class="rc-preview-name">${escapeHtml(r.name)} <span class="rc-preview-meta">— ${escapeHtml(r.restaurant)}</span></div>
+              <div class="rc-preview-meta">${escapeHtml(r.email)}</div>
+            </div>`).join('')}
+          </div>
+          <div class="rc-modal-actions">
+            <div class="rc-modal-actions-left">
+              <button class="rc-btn rc-btn-ghost" id="rc-email-copy-btn" data-action="email-copy">Copy emails</button>
+            </div>
+            <button class="rc-btn rc-btn-ghost" data-action="close-modal">Cancel</button>
+            <button class="rc-btn rc-btn-ghost" data-action="email-send-outlook">Open in Outlook Web</button>
+            <button class="rc-btn rc-btn-primary" data-action="email-send-default">${ICON.mail} Open in Default Mail</button>
+          </div>
+        </div>
+      </div>`;
+  }
+  function renderBulkEmailModal(mount) {
+    const activeSite = getActiveSite();
+    const selected = state.modalState.selected || new Set();
+    const siteContacts = state.contacts.filter(c => c.siteId === state.modalState.siteId && c.email);
+    const grouped = {
+      active: siteContacts.filter(c => c.status === 'active'),
+      paused: siteContacts.filter(c => c.status === 'paused'),
+      terminated: siteContacts.filter(c => c.status === 'terminated'),
+    };
+    const renderGroup = (status, list) => {
+      if (!list.length) return '';
+      const allChecked = list.every(c => selected.has(c.id));
+      return `
+        <div style="margin-top:14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <label class="rc-checkbox-row" style="font-size:12px; text-transform:uppercase; letter-spacing:.3px; font-weight:700; color:var(--text-secondary);">
+              <input type="checkbox" class="rc-bulk-group-check" data-status="${status}" ${allChecked ? 'checked' : ''} />
+              <span>${STATUS_LABEL[status]} <span style="color:var(--text-muted); font-weight:600;">(${list.length})</span></span>
+            </label>
+          </div>
+          <div class="rc-preview" style="max-height:none;">
+            ${list.map(c => `
+              <div class="rc-preview-row">
+                <label class="rc-checkbox-row" style="flex:1;">
+                  <input type="checkbox" class="rc-bulk-recipient" data-id="${c.id}" ${selected.has(c.id) ? 'checked' : ''} />
+                  <span class="rc-preview-name">${escapeHtml(c.contactName)} <span class="rc-preview-meta">— ${escapeHtml(c.restaurantName)}</span></span>
+                </label>
+                <div class="rc-preview-meta">${escapeHtml(c.email)}</div>
+              </div>`).join('')}
+          </div>
+        </div>`;
+    };
+    const selectedCount = selected.size;
+    const fieldHint = selectedCount === 1 ? '→ TO' : selectedCount > 1 ? '→ BCC' : '';
+    mount.innerHTML = `
+      <div class="rc-modal open" id="rc-modal" role="dialog" aria-modal="true">
+        <div class="rc-modal-card" style="width: 640px;">
+          <div class="rc-modal-title">Bulk Email — ${escapeHtml(activeSite?.name || '')}</div>
+          <div class="rc-modal-sub">
+            Pick recipients across any status. A single recipient goes to <strong>TO</strong>;
+            multiple recipients go to <strong>BCC</strong> so contacts can't see each other.
+            <strong>Active</strong> contacts are selected by default.
+          </div>
+
+          <div class="rc-field">
+            <label class="rc-label" for="rc-email-subject">Subject</label>
+            <input type="text" id="rc-email-subject" class="rc-input" placeholder="(Optional)" value="${escapeHtml(state.modalState.subject || '')}" />
+          </div>
+          <div class="rc-field">
+            <label class="rc-label" for="rc-email-body">Message</label>
+            <textarea id="rc-email-body" class="rc-input" rows="5" placeholder="(Optional — write your message here)">${escapeHtml(state.modalState.body || '')}</textarea>
+          </div>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding-top:12px; border-top:1px solid var(--divider);">
+            <div style="font-size:13px; color:var(--text-primary);">
+              <strong style="color:var(--color-orange);">${selectedCount}</strong> recipient${selectedCount === 1 ? '' : 's'} selected
+              ${fieldHint ? `<span style="margin-left:8px; font-size:11px; font-weight:700; letter-spacing:.4px; color:var(--text-secondary); text-transform:uppercase;">${fieldHint}</span>` : ''}
+            </div>
+            <div class="rc-row" style="gap:8px;">
+              <button class="rc-btn rc-btn-ghost rc-btn-sm" data-action="bulk-email-all">Select all</button>
+              <button class="rc-btn rc-btn-ghost rc-btn-sm" data-action="bulk-email-none">Select none</button>
+            </div>
+          </div>
+
+          ${renderGroup('active', grouped.active)}
+          ${renderGroup('paused', grouped.paused)}
+          ${renderGroup('terminated', grouped.terminated)}
+
+          <div class="rc-modal-actions">
+            <div class="rc-modal-actions-left">
+              <button class="rc-btn rc-btn-ghost" id="rc-email-copy-btn" data-action="email-copy" ${selectedCount ? '' : 'disabled style="opacity:0.5;cursor:not-allowed;"'}>Copy emails</button>
+            </div>
+            <button class="rc-btn rc-btn-ghost" data-action="close-modal">Cancel</button>
+            <button class="rc-btn rc-btn-ghost" data-action="email-send-outlook" ${selectedCount ? '' : 'disabled style="opacity:0.5;cursor:not-allowed;"'}>Open in Outlook Web</button>
+            <button class="rc-btn rc-btn-primary" data-action="email-send-default" ${selectedCount ? '' : 'disabled style="opacity:0.5;cursor:not-allowed;"'}>Open in Default Mail</button>
+          </div>
+        </div>
+      </div>`;
+  }
+  function renderSiteFormModal(mount) {
+    const ms = state.modalState || {};
+    const isEdit = !!ms.isEdit;
+    const tzOptions = TIME_ZONES.map(tz =>
+      `<option value="${tz.value}" ${ms.timeZone === tz.value ? 'selected' : ''}>${escapeHtml(tz.label)}</option>`
+    ).join('');
+    mount.innerHTML = `
+      <div class="rc-modal open" id="rc-modal" role="dialog" aria-modal="true">
+        <div class="rc-modal-card" style="width: 640px;">
+          <div class="rc-modal-title">${isEdit ? 'Edit Site' : 'Add New Site'}</div>
+          <div class="rc-modal-sub">
+            ${isEdit ? 'Update site details and shift configuration.' : 'Fill in the site\'s information. All fields are required.'}
+          </div>
+
+          ${ms.error ? `<div class="rc-form-error">${escapeHtml(ms.error)}</div>` : ''}
+
+          <div class="rc-field">
+            <label class="rc-label" for="rc-sf-name">Site Name <span class="rc-required">*</span></label>
+            <input type="text" id="rc-sf-name" class="rc-input" placeholder="e.g. Downtown" value="${escapeHtml(ms.name || '')}" />
+          </div>
+
+          <div class="rc-field">
+            <label class="rc-label" for="rc-sf-snappeaLink">Snappea Link <span class="rc-required">*</span></label>
+            <input type="url" id="rc-sf-snappeaLink" class="rc-input" placeholder="https://snappea.example.com/sites/..." value="${escapeHtml(ms.snappeaLink || '')}" />
+          </div>
+
+          <div class="rc-field">
+            <label class="rc-label" for="rc-sf-address">Address <span class="rc-required">*</span></label>
+            <textarea id="rc-sf-address" class="rc-input" rows="2" placeholder="123 Main St, City, State ZIP">${escapeHtml(ms.address || '')}</textarea>
+          </div>
+
+          <div class="rc-field">
+            <label class="rc-label" for="rc-sf-pocName">POC / GMA Name <span class="rc-required">*</span></label>
+            <input type="text" id="rc-sf-pocName" class="rc-input" placeholder="e.g. Jane Doe" value="${escapeHtml(ms.pocName || '')}" />
+            <div class="rc-hint">Point of contact / GMA for this site.</div>
+          </div>
+
+          <div class="rc-field">
+            <label class="rc-label" for="rc-sf-pocEmail">POC / GMA Email <span class="rc-required">*</span></label>
+            <input type="email" id="rc-sf-pocEmail" class="rc-input" placeholder="gma@site.example.com" value="${escapeHtml(ms.pocEmail || '')}" />
+          </div>
+
+          <div class="rc-field">
+            <label class="rc-label" for="rc-sf-accountManager">Account Manager <span class="rc-required">*</span></label>
+            <input type="text" id="rc-sf-accountManager" class="rc-input" placeholder="e.g. Jordan Rivera" value="${escapeHtml(ms.accountManager || '')}" />
+            <div class="rc-hint">Person on your team responsible for this site.</div>
+          </div>
+
+          <div class="rc-field">
+            <label class="rc-label">Shift Schedule <span class="rc-required">*</span></label>
+            <div class="rc-hint" style="margin-top:0; margin-bottom:8px;">For each shift, set times and pick the days it runs. Skip a shift by leaving its days unselected.</div>
+            <div class="rc-shifts">
+              ${SHIFT_TYPES.map(s => {
+                const shift = (ms.shifts && ms.shifts[s.key]) || { start: '', end: '', days: [] };
+                const customMode = ms.customMode && ms.customMode.has(s.key);
+                const detected = customMode ? null : detectPreset(shift.days);
+                return `
+                  <div class="rc-shift-row" data-shift="${s.key}">
+                    <div class="rc-shift-name">${s.label}</div>
+                    <div class="rc-shift-times">
+                      <input type="time" id="rc-sf-shift-${s.key}-start" class="rc-input rc-time-input" value="${escapeHtml(shift.start || '')}" aria-label="${s.label} start time" />
+                      <span class="rc-shift-dash">–</span>
+                      <input type="time" id="rc-sf-shift-${s.key}-end" class="rc-input rc-time-input" value="${escapeHtml(shift.end || '')}" aria-label="${s.label} end time" />
+                    </div>
+                    <select class="rc-input rc-day-select" data-shift="${s.key}" aria-label="${s.label} days">
+                      ${DAY_PRESETS.map(p => `<option value="${p.key}" ${(!customMode && detected === p.key) ? 'selected' : ''}>${escapeHtml(p.label)}</option>`).join('')}
+                      <option value="custom" ${customMode ? 'selected' : ''}>Custom days…</option>
+                    </select>
+                    ${customMode ? `
+                      <div class="rc-shift-custom-days">
+                        ${DAYS.map(d => `<button type="button" class="rc-day-btn ${shift.days.includes(d.key) ? 'active' : ''}" data-shift="${s.key}" data-day="${d.key}" title="${d.name}">${d.label}</button>`).join('')}
+                      </div>
+                    ` : ''}
+                  </div>`;
+              }).join('')}
+            </div>
+          </div>
+
+          <div class="rc-field">
+            <label class="rc-label" for="rc-sf-timeZone">Time Zone <span class="rc-required">*</span></label>
+            <select id="rc-sf-timeZone" class="rc-input">
+              <option value="">Choose a time zone…</option>
+              ${tzOptions}
+            </select>
+          </div>
+
+          <div class="rc-modal-actions">
+            ${isEdit ? `<div class="rc-modal-actions-left">
+              <button class="rc-btn rc-btn-ghost" data-action="site-hide" data-id="${ms.siteId}">Hide site</button>
+              <button class="rc-btn rc-btn-ghost" data-action="site-delete" data-id="${ms.siteId}" style="color:var(--color-red);">Delete site</button>
+            </div>` : ''}
+            <button class="rc-btn rc-btn-ghost" data-action="close-modal">Cancel</button>
+            <button class="rc-btn rc-btn-primary" data-action="site-submit">${isEdit ? 'Save Changes' : 'Create Site'}</button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function renderHiddenSitesModal(mount) {
+    const hiddenSites = state.sites.filter(s => s.hidden);
+    if (!hiddenSites.length) {
+      // Nothing to manage — close
+      state.modal = null;
+      mount.innerHTML = '';
+      return;
+    }
+    mount.innerHTML = `
+      <div class="rc-modal open" id="rc-modal" role="dialog" aria-modal="true">
+        <div class="rc-modal-card">
+          <div class="rc-modal-title">Hidden Sites</div>
+          <div class="rc-modal-sub">
+            These sites are hidden from the navigation bar. Their contacts are still stored but won't show until you unhide them.
+          </div>
+
+          <div class="rc-preview" style="max-height: 360px;">
+            ${hiddenSites.map(s => {
+              const counts = getSiteCounts(s.id);
+              return `
+                <div class="rc-preview-row" style="align-items: center;">
+                  <div>
+                    <div class="rc-preview-name">${escapeHtml(s.name)}</div>
+                    <div class="rc-preview-meta">${counts.total} contact${counts.total === 1 ? '' : 's'}${s.address ? ' · ' + escapeHtml(s.address.split('\n')[0]) : ''}</div>
+                  </div>
+                  <div style="display: flex; gap: 6px;">
+                    <button class="rc-btn rc-btn-ghost rc-btn-sm" data-action="site-show" data-id="${s.id}">Unhide</button>
+                    <button class="rc-btn rc-btn-ghost rc-btn-sm" data-action="site-delete" data-id="${s.id}" style="color: var(--color-red);">Delete</button>
+                  </div>
+                </div>`;
+            }).join('')}
+          </div>
+
+          <div class="rc-modal-actions">
+            <button class="rc-btn rc-btn-primary" data-action="close-modal">Done</button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function renderHelpModal(mount) {
+    mount.innerHTML = `
+      <div class="rc-modal open" id="rc-modal" role="dialog" aria-modal="true">
+        <div class="rc-modal-card">
+          <div class="rc-modal-title">Help &amp; Feedback</div>
+          <div class="rc-modal-sub">
+            <p style="margin: 0 0 10px;"><strong>Sites</strong> are locations — switch between them using the dropdown at the top. To edit, hide, or delete the active site, use the <strong>Edit Site</strong> button in the Site Info block.</p>
+            <p style="margin: 0 0 10px;"><strong>Site Info</strong> starts collapsed to keep the page compact. Click the site name (next to the chevron) to expand the full details, including address, POC, time zone, and shift schedule.</p>
+            <p style="margin: 0 0 10px;"><strong>Hidden sites</strong> are kept (with their contacts) but removed from the bar. Click <strong>N hidden</strong> next to "Add Site" to unhide or delete them.</p>
+            <p style="margin: 0 0 10px;"><strong>Add a contact</strong> by clicking <strong>+ Add New Vendor</strong> on the Active Restaurants bar. Required fields are marked with *.</p>
+            <p style="margin: 0 0 10px;"><strong>Bulk Add</strong> lets you paste rows from a spreadsheet (first row = headers).</p>
+            <p style="margin: 0 0 10px;"><strong>Email</strong> a group by selecting their checkboxes and clicking Email in the section bar.</p>
+            <p style="margin: 0 0 10px;"><strong>Reorder restaurants</strong> by hovering a row and dragging the ⋮⋮ handle on its left — reordering works within each section (Active, Paused, Terminated).</p>
+            <p style="margin: 0 0 10px;"><strong>Snappea URL</strong> on a contact turns the restaurant name into a link that opens their profile in Snappea.</p>
+            <p style="margin: 0;"><strong>Dark mode</strong> is the 🌙 button in the top-right of the header.</p>
+          </div>
+          <div class="rc-modal-actions">
+            <button class="rc-btn rc-btn-primary" data-action="close-modal">Got it</button>
+          </div>
+        </div>
+      </div>`;
+  }
+  function rcShowHelp() {
+    state.modal = 'help';
+    render();
+  }
+
+  /* ══════════════════ Master render + handlers ══════════════════ */
+  function render() {
+    renderSubnav();
+    renderMain();
+    renderModal();
+    bindEvents();
+    if (state._focusId) {
+      const el = document.getElementById(state._focusId);
+      if (el) {
+        el.focus();
+        if (el.value != null) { const v = el.value; el.value = ''; el.value = v; }
+      }
+      state._focusId = null;
+    }
+  }
+
+  function bindEvents() {
+    // Site dropdown toggle
+    document.querySelectorAll('[data-action="toggle-site-dropdown"]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        state.siteDropdownOpen = !state.siteDropdownOpen;
+        render();
+      });
+    });
+    // Site dropdown items
+    document.querySelectorAll('#rc-sites-nav .rc-site-dropdown-item').forEach(item => {
+      item.addEventListener('click', e => {
+        e.stopPropagation();
+        const siteId = item.getAttribute('data-site');
+        if (!siteId) return;
+        state.activeSiteId = siteId;
+        state.formData.siteId = siteId;
+        state.siteDropdownOpen = false;
+        for (const s of STATUS_ORDER) state.selectedIds[s].clear();
+        render();
+      });
+    });
+    // Subnav action buttons (Add Site, N hidden)
+    document.querySelectorAll('#rc-sites-nav .rc-subnav-btn').forEach(btn => {
+      btn.addEventListener('click', e => {
+        const action = btn.getAttribute('data-action');
+        if (action === 'open-site-form') {
+          const id = btn.getAttribute('data-id') || '';
+          return rcOpenSiteForm(id || null);
+        }
+        if (action === 'open-hidden-sites') return rcOpenHiddenSites();
+      });
+    });
+    // Site Info collapsible header
+    document.querySelectorAll('[data-action="toggle-site-info"]').forEach(el => {
+      el.addEventListener('click', e => {
+        e.stopPropagation();
+        state.siteInfoExpanded = !state.siteInfoExpanded;
+        render();
+      });
+      el.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          state.siteInfoExpanded = !state.siteInfoExpanded;
+          render();
+        }
+      });
+    });
+
+    // Search input
+    const searchInput = document.getElementById('rc-search-input');
+    if (searchInput) {
+      searchInput.addEventListener('focus', e => {
+        if (!state._searchFocused) {
+          state._searchFocused = true;
+          render();
+        }
+      });
+      searchInput.addEventListener('input', e => {
+        state.search = e.target.value;
+        state._searchFocused = true;
+        state._focusId = 'rc-search-input';
+        render();
+      });
+    }
+
+    // Clear-search button (in the global search bar)
+    document.querySelectorAll('[data-action="clear-search"]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        state.search = '';
+        state._searchFocused = true;
+        state._focusId = 'rc-search-input';
+        render();
+      });
+    });
+
+    // Search dropdown: click a site result → switch to that site, clear search
+    document.querySelectorAll('[data-action="search-pick-site"]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const siteId = btn.getAttribute('data-id');
+        if (!siteId) return;
+        state.activeSiteId = siteId;
+        state.formData.siteId = siteId;
+        state.search = '';
+        state._searchFocused = false;
+        for (const s of STATUS_ORDER) state.selectedIds[s].clear();
+        render();
+      });
+    });
+
+    // Search dropdown: click a contact result → switch to its site, KEEP search
+    // active so the contact stays highlighted in the filtered table below
+    document.querySelectorAll('[data-action="search-pick-contact"]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const siteId = btn.getAttribute('data-site');
+        if (!siteId) return;
+        state.activeSiteId = siteId;
+        state.formData.siteId = siteId;
+        state._searchFocused = false;
+        for (const s of STATUS_ORDER) state.selectedIds[s].clear();
+        render();
+      });
+    });
+
+    // Row checkboxes
+    document.querySelectorAll('.rc-row-check').forEach(cb => {
+      cb.addEventListener('change', e => {
+        const id = cb.getAttribute('data-id');
+        const status = cb.getAttribute('data-status');
+        if (cb.checked) state.selectedIds[status].add(id);
+        else state.selectedIds[status].delete(id);
+        render();
+      });
+    });
+
+    // Row drag-and-drop for reordering (within the same section only)
+    document.querySelectorAll('tr.rc-contact-row').forEach(tr => {
+      tr.addEventListener('dragstart', e => {
+        const id = tr.getAttribute('data-id');
+        const status = tr.getAttribute('data-status');
+        state._dragging = { id, status };
+        try {
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', id);
+        } catch (err) {}
+        tr.classList.add('rc-dragging');
+      });
+      tr.addEventListener('dragend', e => {
+        tr.classList.remove('rc-dragging');
+        document.querySelectorAll('tr.rc-contact-row').forEach(r => r.classList.remove('rc-drop-top', 'rc-drop-bottom'));
+        state._dragging = null;
+      });
+      tr.addEventListener('dragover', e => {
+        if (!state._dragging) return;
+        const targetStatus = tr.getAttribute('data-status');
+        // Only allow drop within the same section
+        if (state._dragging.status !== targetStatus) {
+          e.dataTransfer.dropEffect = 'none';
+          return;
+        }
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        const rect = tr.getBoundingClientRect();
+        const midpoint = rect.top + rect.height / 2;
+        if (e.clientY < midpoint) {
+          tr.classList.add('rc-drop-top');
+          tr.classList.remove('rc-drop-bottom');
+        } else {
+          tr.classList.add('rc-drop-bottom');
+          tr.classList.remove('rc-drop-top');
+        }
+      });
+      tr.addEventListener('dragleave', e => {
+        tr.classList.remove('rc-drop-top', 'rc-drop-bottom');
+      });
+      tr.addEventListener('drop', async e => {
+        e.preventDefault();
+        const targetId = tr.getAttribute('data-id');
+        const targetStatus = tr.getAttribute('data-status');
+        const insertBefore = tr.classList.contains('rc-drop-top');
+        tr.classList.remove('rc-drop-top', 'rc-drop-bottom');
+        if (!state._dragging) return;
+        if (state._dragging.status !== targetStatus) return;
+        if (state._dragging.id === targetId) return;
+        await reorderContact(state._dragging.id, targetId, insertBefore, targetStatus);
+        state._dragging = null;
+      });
+    });
+    // Check all in section
+    document.querySelectorAll('.rc-check-all').forEach(cb => {
+      cb.addEventListener('change', e => {
+        const status = cb.getAttribute('data-status');
+        const list = getFilteredContacts(status);
+        if (cb.checked) list.forEach(c => state.selectedIds[status].add(c.id));
+        else list.forEach(c => state.selectedIds[status].delete(c.id));
+        render();
+      });
+    });
+
+    // Row actions + section actions
+    document.querySelectorAll('[data-action]').forEach(el => {
+      const action = el.getAttribute('data-action');
+      // Avoid double-binding subnav-only actions
+      if (['open-site-form', 'open-hidden-sites'].includes(action) && el.closest('#rc-sites-nav')) return;
+      el.addEventListener('click', e => {
+        e.preventDefault();
+        const id = el.getAttribute('data-id');
+        const status = el.getAttribute('data-status');
+        switch (action) {
+          case 'open-new-form':      return rcOpenNewForm();
+          case 'open-site-form':     return rcOpenSiteForm(id || null);
+          case 'site-submit':        return submitSiteForm();
+          case 'site-hide':          return hideSite(id);
+          case 'site-show':          return showSite(id);
+          case 'site-delete':        return deleteSite(id);
+          case 'edit-contact':       return startEdit(id);
+          case 'remove-contact':
+            if (confirm('Remove this contact? This cannot be undone.')) removeContact(id);
+            return;
+          case 'cancel-edit':        return cancelEdit();
+          case 'submit-form':        return submitForm();
+          case 'email-selected':     return rcOpenEmail(status);
+          case 'clear-selected':
+            state.selectedIds[status].clear();
+            return render();
+          case 'close-modal':        return rcCloseModal();
+          case 'bulk-submit':        return rcBulkSubmit();
+          case 'email-copy':         return rcEmailCopy();
+          case 'email-send-default': return rcEmailSend('default');
+          case 'email-send-outlook': return rcEmailSend('outlook');
+        }
+      });
+    });
+
+    // Form inputs (track changes without re-rendering)
+    ['rc-f-restaurantName','rc-f-profileUrl','rc-f-contactName','rc-f-email','rc-f-notes','rc-f-statusReason','rc-f-statusDate'].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const key = id.replace('rc-f-','');
+      el.addEventListener('input', e => { state.formData[key] = e.target.value; });
+    });
+    // Phone inputs — auto-format each row independently
+    document.querySelectorAll('.rc-phone-input').forEach(input => {
+      input.addEventListener('input', e => {
+        const idx = +input.getAttribute('data-idx');
+        const formatted = formatPhone(e.target.value);
+        e.target.value = formatted;
+        if (!Array.isArray(state.formData.phones)) state.formData.phones = [];
+        state.formData.phones[idx] = formatted;
+      });
+    });
+    // Phone — remove a row
+    document.querySelectorAll('.rc-phone-remove').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.preventDefault();
+        const idx = +btn.getAttribute('data-idx');
+        // Snapshot live values before re-render so we don't lose typing in unaffected rows
+        const current = Array.from(document.querySelectorAll('.rc-phone-input')).map(el => el.value);
+        current.splice(idx, 1);
+        state.formData.phones = current.length ? current : [''];
+        render();
+      });
+    });
+    // Phone — add a new row
+    const phoneAddBtn = document.querySelector('.rc-phone-add');
+    if (phoneAddBtn) {
+      phoneAddBtn.addEventListener('click', e => {
+        e.preventDefault();
+        const current = Array.from(document.querySelectorAll('.rc-phone-input')).map(el => el.value);
+        current.push('');
+        state.formData.phones = current;
+        render();
+        setTimeout(() => {
+          const inputs = document.querySelectorAll('.rc-phone-input');
+          inputs[inputs.length - 1]?.focus();
+        }, 0);
+      });
+    }
+    // isNew checkbox
+    const isNewBox = document.getElementById('rc-f-isNew');
+    if (isNewBox) isNewBox.addEventListener('change', e => { state.formData.isNew = !!e.target.checked; });
+    // Site dropdown
+    const siteDD = document.getElementById('rc-f-siteId');
+    if (siteDD) siteDD.addEventListener('change', e => { state.formData.siteId = e.target.value; });
+
+    // Cuisine dropdown (with Other handler)
+    const cuisineSelect = document.getElementById('rc-f-cuisineType');
+    if (cuisineSelect) {
+      cuisineSelect.addEventListener('change', e => {
+        const val = e.target.value;
+        const existing = document.getElementById('rc-f-cuisineType-other');
+        if (val === '__other__') {
+          state.cuisineOtherActive = true;
+          state.formData.cuisineType = '';
+          if (!existing) {
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.id = 'rc-f-cuisineType-other';
+            input.className = 'rc-input';
+            input.placeholder = 'Specify cuisine type (required)';
+            input.value = '';
+            input.style.marginTop = '6px';
+            input.addEventListener('input', ev => { state.formData.cuisineType = ev.target.value; });
+            cuisineSelect.parentNode.appendChild(input);
+            setTimeout(() => input.focus(), 0);
+          }
+        } else {
+          state.cuisineOtherActive = false;
+          if (existing) existing.remove();
+          state.formData.cuisineType = val;
+        }
+      });
+      const existingOther = document.getElementById('rc-f-cuisineType-other');
+      if (existingOther) existingOther.addEventListener('input', e => { state.formData.cuisineType = e.target.value; });
+    }
+
+    // Segmented toggles (status, performance)
+    document.querySelectorAll('.rc-seg').forEach(seg => {
+      const key = seg.getAttribute('data-seg');
+      seg.querySelectorAll('.rc-seg-btn').forEach(btn => {
+        btn.addEventListener('click', e => {
+          e.preventDefault();
+          const val = btn.getAttribute('data-val');
+          state.formData[key] = val;
+          if (key === 'status' && val !== 'active' && !state.formData.statusDate) {
+            state.formData.statusDate = todayISO();
+          }
+          render();
+        });
+      });
+    });
+
+    // Site form: shift schedule dropdowns (days per shift)
+    document.querySelectorAll('.rc-day-select').forEach(sel => {
+      sel.addEventListener('change', e => {
+        const shiftKey = sel.getAttribute('data-shift');
+        if (!state.modalState.shifts) state.modalState.shifts = emptyShifts();
+        if (!state.modalState.shifts[shiftKey]) state.modalState.shifts[shiftKey] = { start: '', end: '', days: [] };
+        if (!state.modalState.customMode) state.modalState.customMode = new Set();
+        const val = sel.value;
+        if (val === 'custom') {
+          // Enter custom mode; keep current days as the starting point
+          state.modalState.customMode.add(shiftKey);
+        } else {
+          // Pick a preset; leave custom mode
+          state.modalState.customMode.delete(shiftKey);
+          state.modalState.shifts[shiftKey].days = daysForPreset(val);
+        }
+        // Snapshot other live inputs so they don't get wiped on re-render
+        SHIFT_TYPES.forEach(s => {
+          const startEl = document.getElementById(`rc-sf-shift-${s.key}-start`);
+          const endEl   = document.getElementById(`rc-sf-shift-${s.key}-end`);
+          if (startEl) state.modalState.shifts[s.key].start = startEl.value;
+          if (endEl)   state.modalState.shifts[s.key].end   = endEl.value;
+        });
+        ['name','snappeaLink','address','timeZone'].forEach(k => {
+          const el = document.getElementById('rc-sf-' + k);
+          if (el) state.modalState[k] = el.value;
+        });
+        render();
+      });
+    });
+    // Site form: day-of-week toggle buttons (only visible when shift is in custom mode)
+    document.querySelectorAll('.rc-day-btn').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.preventDefault();
+        const shiftKey = btn.getAttribute('data-shift');
+        const dayKey = btn.getAttribute('data-day');
+        if (!state.modalState.shifts) state.modalState.shifts = emptyShifts();
+        if (!state.modalState.shifts[shiftKey]) state.modalState.shifts[shiftKey] = { start: '', end: '', days: [] };
+        const days = state.modalState.shifts[shiftKey].days || [];
+        const idx = days.indexOf(dayKey);
+        if (idx >= 0) days.splice(idx, 1);
+        else days.push(dayKey);
+        state.modalState.shifts[shiftKey].days = days;
+        // Snapshot other live inputs
+        SHIFT_TYPES.forEach(s => {
+          const startEl = document.getElementById(`rc-sf-shift-${s.key}-start`);
+          const endEl   = document.getElementById(`rc-sf-shift-${s.key}-end`);
+          if (startEl) state.modalState.shifts[s.key].start = startEl.value;
+          if (endEl)   state.modalState.shifts[s.key].end   = endEl.value;
+        });
+        ['name','snappeaLink','address','timeZone'].forEach(k => {
+          const el = document.getElementById('rc-sf-' + k);
+          if (el) state.modalState[k] = el.value;
+        });
+        render();
+      });
+    });
+    // Site form: keep start/end values in modalState while typing (so day toggles don't wipe them)
+    document.querySelectorAll('.rc-time-input').forEach(inp => {
+      inp.addEventListener('input', e => {
+        const m = inp.id.match(/^rc-sf-shift-(.+)-(start|end)$/);
+        if (!m) return;
+        const [, shiftKey, which] = m;
+        if (!state.modalState.shifts) state.modalState.shifts = emptyShifts();
+        if (!state.modalState.shifts[shiftKey]) state.modalState.shifts[shiftKey] = { start: '', end: '', days: [] };
+        state.modalState.shifts[shiftKey][which] = inp.value;
+      });
+    });
+    // Site form: keep simple text fields in modalState too
+    ['rc-sf-name','rc-sf-snappeaLink','rc-sf-address','rc-sf-timeZone'].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const key = id.replace('rc-sf-','');
+      el.addEventListener('input', e => { state.modalState[key] = e.target.value; });
+      el.addEventListener('change', e => { state.modalState[key] = e.target.value; });
+    });
+
+    // Modal backdrop click — dismisses non-form modals
+    const modal = document.getElementById('rc-modal');
+    if (modal) {
+      modal.addEventListener('click', e => {
+        const isFormModal = state.modal === 'form' || state.modal === 'siteForm';
+        if (e.target.id === 'rc-modal' && !isFormModal) rcCloseModal();
+      });
+    }
+
+    // Bulk add: file input + drag-drop on the dropzone
+    const fileInput = document.getElementById('rc-bulk-file');
+    if (fileInput) {
+      fileInput.addEventListener('change', e => {
+        const file = e.target.files && e.target.files[0];
+        if (file) rcBulkFileSelected(file);
+      });
+    }
+    const drop = document.getElementById('rc-bulk-drop');
+    if (drop) {
+      drop.addEventListener('dragover', e => {
+        e.preventDefault();
+        drop.classList.add('rc-drop-hover');
+      });
+      drop.addEventListener('dragleave', e => {
+        drop.classList.remove('rc-drop-hover');
+      });
+      drop.addEventListener('drop', e => {
+        e.preventDefault();
+        drop.classList.remove('rc-drop-hover');
+        const file = e.dataTransfer.files && e.dataTransfer.files[0];
+        if (file) rcBulkFileSelected(file);
+      });
+    }
+
+    // Bulk email modal — recipient toggles
+    document.querySelectorAll('.rc-bulk-recipient').forEach(cb => {
+      cb.addEventListener('change', e => {
+        const id = cb.getAttribute('data-id');
+        const sel = state.modalState.selected || new Set();
+        if (cb.checked) sel.add(id); else sel.delete(id);
+        state.modalState.selected = sel;
+        // Persist current subject/body before re-render
+        state.modalState.subject = document.getElementById('rc-email-subject')?.value || state.modalState.subject || '';
+        state.modalState.body    = document.getElementById('rc-email-body')?.value    || state.modalState.body    || '';
+        render();
+      });
+    });
+    // Bulk email modal — group toggle (whole status group on/off)
+    document.querySelectorAll('.rc-bulk-group-check').forEach(cb => {
+      cb.addEventListener('change', e => {
+        const status = cb.getAttribute('data-status');
+        const sel = state.modalState.selected || new Set();
+        const siteContacts = state.contacts.filter(c => c.siteId === state.modalState.siteId && c.email && c.status === status);
+        if (cb.checked) siteContacts.forEach(c => sel.add(c.id));
+        else siteContacts.forEach(c => sel.delete(c.id));
+        state.modalState.selected = sel;
+        state.modalState.subject = document.getElementById('rc-email-subject')?.value || state.modalState.subject || '';
+        state.modalState.body    = document.getElementById('rc-email-body')?.value    || state.modalState.body    || '';
+        render();
+      });
+    });
+    // Bulk email modal — select all / none
+    document.querySelectorAll('[data-action="bulk-email-all"], [data-action="bulk-email-none"]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.preventDefault();
+        const all = btn.getAttribute('data-action') === 'bulk-email-all';
+        const sel = new Set();
+        if (all) {
+          state.contacts.filter(c => c.siteId === state.modalState.siteId && c.email).forEach(c => sel.add(c.id));
+        }
+        state.modalState.selected = sel;
+        state.modalState.subject = document.getElementById('rc-email-subject')?.value || state.modalState.subject || '';
+        state.modalState.body    = document.getElementById('rc-email-body')?.value    || state.modalState.body    || '';
+        render();
+      });
+    });
+    // Persist subject/body as user types so re-renders don't lose them
+    ['rc-email-subject', 'rc-email-body'].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const key = id === 'rc-email-subject' ? 'subject' : 'body';
+      el.addEventListener('input', e => { state.modalState[key] = e.target.value; });
+    });
+  }
+
+  // Escape key closes modals (form modal: route through cancelEdit to clear editing state)
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && state.modal) {
+      if (state.modal === 'form') cancelEdit();
+      else rcCloseModal();
+    }
+  });
+
+  // Expose handlers used by inline onclick attributes
+  window.rcOpenBulkAdd = rcOpenBulkAdd;
+  window.rcOpenBulkEmail = rcOpenBulkEmail;
+  window.rcShowHelp = rcShowHelp;
+
+  /* ══════════════════ Boot ══════════════════ */
+  (async function boot() {
+    await loadAll();
+    // Global handlers (registered once, not in bindEvents which runs every render)
+    document.addEventListener('click', e => {
+      if (state.siteDropdownOpen && !e.target.closest('.rc-site-dropdown')) {
+        state.siteDropdownOpen = false;
+        render();
+      }
+      if (state._searchFocused && !e.target.closest('.rc-global-search')) {
+        state._searchFocused = false;
+        render();
+      }
+    });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        let needsRender = false;
+        if (state.siteDropdownOpen) { state.siteDropdownOpen = false; needsRender = true; }
+        if (state._searchFocused)   { state._searchFocused = false;   needsRender = true; }
+        if (needsRender) render();
+      }
+    });
+    render();
+  })();
+
+  })(); // end IIFE
+  </script>
+
+</body>
+</html>
