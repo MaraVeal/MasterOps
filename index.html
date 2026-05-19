@@ -2743,10 +2743,31 @@
 
   /* ══════════════════ Master render + handlers ══════════════════ */
   function render() {
+    // Preserve modal scroll position so clicking checkboxes/buttons doesn't snap the modal back to the top
+    const oldModalCard = document.querySelector('.rc-modal-card');
+    const modalScrollTop = oldModalCard ? oldModalCard.scrollTop : 0;
+    // Also remember which element had focus, so checkbox/button focus survives the render
+    const activeEl = document.activeElement;
+    const activeId = activeEl && activeEl.id ? activeEl.id : '';
+    const activeAttrs = (activeEl && !activeEl.id && activeEl !== document.body) ? {
+      tag: activeEl.tagName,
+      cls: activeEl.className,
+      dataId: activeEl.getAttribute('data-id'),
+      dataStatus: activeEl.getAttribute('data-status'),
+      dataAction: activeEl.getAttribute('data-action'),
+    } : null;
+
     renderSubnav();
     renderMain();
     renderModal();
     bindEvents();
+
+    // Restore modal scroll position
+    if (modalScrollTop > 0) {
+      const newModalCard = document.querySelector('.rc-modal-card');
+      if (newModalCard) newModalCard.scrollTop = modalScrollTop;
+    }
+    // Restore focus on the element that had it, when possible
     if (state._focusId) {
       const el = document.getElementById(state._focusId);
       if (el) {
@@ -2754,6 +2775,19 @@
         if (el.value != null) { const v = el.value; el.value = ''; el.value = v; }
       }
       state._focusId = null;
+    } else if (activeId) {
+      const el = document.getElementById(activeId);
+      if (el) el.focus();
+    } else if (activeAttrs) {
+      // Best-effort: find a same-shape element to refocus (e.g. the same checkbox in the rebuilt modal)
+      const selectors = [];
+      if (activeAttrs.dataId)     selectors.push(`[data-id="${activeAttrs.dataId}"]`);
+      if (activeAttrs.dataStatus) selectors.push(`[data-status="${activeAttrs.dataStatus}"]`);
+      if (activeAttrs.dataAction) selectors.push(`[data-action="${activeAttrs.dataAction}"]`);
+      if (selectors.length) {
+        const candidate = document.querySelector(activeAttrs.tag.toLowerCase() + selectors.join(''));
+        if (candidate) candidate.focus();
+      }
     }
   }
 
